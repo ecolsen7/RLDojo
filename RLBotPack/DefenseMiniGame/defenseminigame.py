@@ -182,7 +182,7 @@ class DefenseMiniGame(BaseScript):
             ball_vel_z = np.random.random()*360-460
             ball_pos_z = np.random.random()*200+500
         self.paused_car_states = car_states
-        ball_location = Vector3(0, 4000, ball_pos_z)
+        ball_location = Vector3(0, -4000, ball_pos_z)
         ball_velocity = Vector3(ball_vel_x, ball_vel_y, ball_vel_z)
         ball_state = BallState(Physics(location=ball_location, velocity=ball_velocity))
         self.game_state = GameState(ball=ball_state, cars=car_states)
