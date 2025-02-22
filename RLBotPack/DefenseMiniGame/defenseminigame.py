@@ -100,12 +100,17 @@ class DefenseMiniGame(BaseScript):
             elif self.game_phase == Phase.PAUSED:
                 # self.game_phase = 1
                 self.game_phase = Phase.ACTIVE
+
             else:
                 self.kickoff_countdown = ''
             
             # phase 2(special case): when goal scored with no further touches, reset phase
-            if self.game_phase == Phase.ACTIVE and packet.game_info.is_kickoff_pause and packet.game_ball.latest_touch.time_seconds <= phase2_time:
-                self.game_phase = Phase.SETUP
+            if self.game_phase == Phase.ACTIVE:
+                if packet.game_info.is_kickoff_pause and packet.game_ball.latest_touch.time_seconds <= phase2_time:
+                    self.game_phase = Phase.SETUP
+                if self.cur_time - self.prev_time > 5:
+                    self.game_phase = Phase.SETUP
+            
 
 
     def do_rendering(self):
