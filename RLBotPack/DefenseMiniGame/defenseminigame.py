@@ -152,7 +152,7 @@ class DefenseMiniGame(BaseScript):
     # X = 850 is the goal post
     def setup_newround(self, packet):
         car_states = {}
-        yaw, yaw_mir = self.yaw_randomizor()
+        yaw, yaw_mir = self.yaw_randomizer()
         for p in range(packet.num_cars):
             car = packet.game_cars[p]
             if car.team == 0:
