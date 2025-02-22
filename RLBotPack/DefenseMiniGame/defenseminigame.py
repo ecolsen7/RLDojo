@@ -36,6 +36,7 @@ class DefenseMiniGame(BaseScript):
         self.ball_preview = 'Off' # show how the ball will move before kickoff commences
         self.standard_kickoffs = 'Off'
         self.error_timer = 0
+        self.circle = [(round(np.cos(2*np.pi/120*x)*1200),round(np.sin(2*np.pi/120*x)*1200),15) for x in range(0,120+1)]
         try:
             self.defeats_buffer = np.load('Omus_replay_states.npy')
         except:
