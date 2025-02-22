@@ -156,13 +156,13 @@ class DefenseMiniGame(BaseScript):
         for p in range(packet.num_cars):
             car = packet.game_cars[p]
             if car.team == 0:
-                car_location = Vector3(0, 3800, 17)
-                car_state = CarState(boost_amount=100, physics=Physics(location=car_location, rotation=Rotator(yaw=yaw, pitch=0, roll=0), velocity=Vector3(0, 0, 0),
+                car_location = Vector3(0, -3800, 17)
+                car_state = CarState(boost_amount=100, physics=Physics(location=car_location, rotation=Rotator(yaw=yaw_mir, pitch=0, roll=0), velocity=Vector3(0, 0, 0),
                         angular_velocity=Vector3(0, 0, 0)))
                 car_states[p] = car_state
             elif car.team == 1:
-                car_location = Vector3(0, 4800, 17)
-                car_state = CarState(boost_amount=100, physics=Physics(location=car_location, rotation=Rotator(yaw=yaw, pitch=0, roll=0), velocity=Vector3(0, 0, 0),
+                car_location = Vector3(0, -4800, 17)
+                car_state = CarState(boost_amount=100, physics=Physics(location=car_location, rotation=Rotator(yaw=yaw_mir, pitch=0, roll=0), velocity=Vector3(0, 0, 0),
                         angular_velocity=Vector3(0, 0, 0)))
                 car_states[p] = car_state
         if self.horz_ball_var == 'Off':
@@ -186,7 +186,7 @@ class DefenseMiniGame(BaseScript):
         self.game_phase = -1
 
     # Set up car and ball states based on predefined scenarios
-    def setup_scenario(self, packet, ):
+    def setup_scenario(self, packet):
         pass
 
     def setup_std_kickoff(self, packet):
