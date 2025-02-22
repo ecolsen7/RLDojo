@@ -1,4 +1,5 @@
 import numpy as np
+from enum import Enum
 import keyboard
 
 from rlbot.agents.base_script import BaseScript
