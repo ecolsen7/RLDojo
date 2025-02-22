@@ -77,7 +77,7 @@ class DefenseMiniGame(BaseScript):
             # setup round
             if self.game_phase == Phase.SETUP and packet.game_info.is_kickoff_pause:
                 # self.setup_std_kickoff(packet) if self.standard_kickoffs == 'On' else self.setup_newround(packet)
-                self.setup_scenario(packet)
+                self.setup_newround(packet)
 
             # when 'disable goal reset' mutator active
             if self.disable_goal_reset == True:
