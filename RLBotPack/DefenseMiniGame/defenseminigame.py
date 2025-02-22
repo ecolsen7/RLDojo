@@ -108,8 +108,10 @@ class DefenseMiniGame(BaseScript):
             if self.game_phase == Phase.ACTIVE:
                 if packet.game_info.is_kickoff_pause and packet.game_ball.latest_touch.time_seconds <= phase2_time:
                     self.game_phase = Phase.SETUP
-                if self.cur_time - self.prev_time > 5:
+                if (self.cur_time - self.prev_time) > 5.0:
                     self.game_phase = Phase.SETUP
+                else:
+                    print(f"Time active: {self.cur_time - self.prev_time}")
             
 
 
