@@ -9,6 +9,7 @@ class Phase(Enum):
     PAUSED = -1
     SETUP = 0
     ACTIVE = 1
+    SCORED = 2
 
 class DefenseMiniGame(BaseScript):
     '''
@@ -25,6 +26,7 @@ class DefenseMiniGame(BaseScript):
         self.disable_goal_reset = False
         self.pause_time = 1 # Can increase if hard coded kickoffs are causing issues
         self.cur_time = 0
+        self.scored_time = 0
         self.first_kickoff = True
         self.state_buffer = np.empty((0,37))
         self.blue_omus = False
@@ -76,21 +78,24 @@ class DefenseMiniGame(BaseScript):
 
             # match statement state machine for game phase
             match self.game_phase:
+                case Phase.SCORED:
+                    self.game_phase = Phase.SETUP
                 case Phase.SETUP:
                     self.setup_scenario(packet)
                     self.game_phase = Phase.PAUSED
                 case Phase.PAUSED:
-                    if (self.cur_time - self.prev_time) < self.pause_time:
-                        if (self.cur_time - self.prev_time) < 0.5 and self.ball_preview == 'On':
-                            self.set_game_state(GameState(cars=self.paused_car_states))
-                        else:
-                            self.set_game_state(self.game_state)
+                    if (self.cur_time - self.prev_time) < self.pause_time or self.goal_scored(packet) or packet.game_info.is_kickoff_pause:
+                    #     if (self.cur_time - self.prev_time) < 0.5 and self.ball_preview == 'On':
+                    #         self.set_game_state(GameState(cars=self.paused_car_states))
+                    #     else:
+                    #         self.set_game_state(self.game_state)
 
-                        if self.standard_kickoffs == 'On': # show kickoff countdown
-                            self.kickoff_countdown = f'{5-int(np.ceil(self.cur_time-self.prev_time))}'
+                    #     if self.standard_kickoffs == 'On': # show kickoff countdown
+                    #         self.kickoff_countdown = f'{5-int(np.ceil(self.cur_time-self.prev_time))}'
 
-                            if self.kickoff_countdown == '4' or self.kickoff_countdown == '5':
-                                self.kickoff_countdown = ''
+                    #         if self.kickoff_countdown == '4' or self.kickoff_countdown == '5':
+                    #             self.kickoff_countdown = ''
+                        self.set_game_state(self.game_state)
                     else:
                         self.game_phase = Phase.ACTIVE
                 case Phase.ACTIVE:
@@ -99,10 +104,11 @@ class DefenseMiniGame(BaseScript):
                             self.game_phase = Phase.SETUP
                     if packet.game_info.is_kickoff_pause:
                         self.game_phase = Phase.SETUP
-                    if (self.cur_time - self.prev_time) > 7.0:
+                    if (self.cur_time - self.prev_time) > 10.0:
                         # Add a goal to the defensive team
                         self.score_for_team(0)
-                        self.game_phase = Phase.SETUP
+                        self.game_phase = Phase.SCORED
+                        self.scored_time = self.cur_time
                 case _:
                     pass
             
@@ -142,20 +148,9 @@ class DefenseMiniGame(BaseScript):
             return True
         return False
 
-
-    def omus_defeated(self, packet):
-            # check if omus got scored on (omus must be on blue team)
-            omusDefeat = packet.teams[1].score
-
-            if omusDefeat != self.omusDefeat_prev:
-                self.omusDefeat_prev = omusDefeat
-                return True
-            return False
-
-
     # Location is X, Y, Z
     # Y = 5100 is the goal line
-    # X = 850 is the goal post
+    # X = +/-850 is the goal post
     def setup_newround(self, packet):
         car_states = {}
         yaw, yaw_mir = self.yaw_randomizer()
@@ -193,7 +188,7 @@ class DefenseMiniGame(BaseScript):
     # Set up car and ball states based on predefined scenarios
     # Location is X, Y, Z
     # Y = 5100 is the goal line
-    # X = 850 is the goal post
+    # X = +/-850 is the goal post
     def setup_scenario(self, packet):
         # The play will start with a momentum randomly selected to mimic real life
         #general_play_momentum = 
@@ -226,8 +221,8 @@ class DefenseMiniGame(BaseScript):
             play_yaw_mir = -play_yaw
            
         # Add a small random angle to the yaw of each car
-        offensive_car_yaw = play_yaw_mir + np.random.random()*0.1-0.05
-        defensive_car_yaw = play_yaw_mir + np.random.random()*0.1-0.05
+        offensive_car_yaw = play_yaw_mir + np.random.random()*0.2-0.1*np.pi
+        defensive_car_yaw = play_yaw_mir + np.random.random()*0.2-0.1*np.pi
 
         # Get the momentum from the yaw
         offensive_car_velocity = self.get_velocity_from_yaw(offensive_car_yaw)
@@ -237,20 +232,21 @@ class DefenseMiniGame(BaseScript):
         # Get the starting position of each car
         # Want to randomize between:
         # - X: -2000 to 2000
-        # - Y: -3200 to 500
+        # - Y: -2500 to 2500
         offensive_x_location = np.random.random()*4000-2000
-        offensive_y_location = np.random.random()*4700-3200
+        offensive_y_location = np.random.random()*5000-2500
         offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
 
         # Defensive location should be +-300 X units away from offensive car, and -1000 to -1500 Y units away
         defensive_x_location = offensive_x_location + np.random.random()*600-300
-        defensive_y_location = offensive_y_location - np.random.random()*500-1000
+        defensive_y_location = offensive_y_location - np.random.random()*1000-1500
         defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 17)
 
-        # Ball should be ~600 units "in front" of offensive car, with 200 variance in either dir    ection
+        # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
         ball_x_location = offensive_x_location + 600 * np.cos(offensive_car_yaw) + np.random.random()*200-100
         ball_y_location = offensive_y_location + 600 * np.sin(offensive_car_yaw) + np.random.random()*200-100
-        ball_position = Vector3(ball_x_location, ball_y_location, 93)
+        ball_z_location = 93 + np.random.random()*200
+        ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
 
         offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
