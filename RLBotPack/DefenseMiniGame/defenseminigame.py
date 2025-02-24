@@ -204,25 +204,33 @@ class DefenseMiniGame(BaseScript):
         # Defensive location should be +-300 X units away from offensive car, and 1000 to 1500 Y units away towards the goal
         defensive_x_location = offensive_x_location + np.random.random()*600-300
         if self.mirrored:
-            defensive_y_location = offensive_y_location + np.random.random()*1000-1500
+            defensive_y_location = offensive_y_location + np.random.random()*1000+1500
         else:
             defensive_y_location = offensive_y_location - np.random.random()*1000-1500
             
         defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 17)
 
-        # Render the offensive and defensive coordinates
-        self.game_interface.renderer.begin_rendering()
-        self.game_interface.renderer.draw_string_2d(20, 400, 1, 1, f"Offensive Car: {offensive_x_location}, {offensive_y_location}", self.renderer.yellow())
-        self.game_interface.renderer.draw_string_2d(20, 460, 1, 1, f"Defensive Car: {defensive_x_location}, {defensive_y_location}", self.renderer.yellow())
-        self.game_interface.renderer.end_rendering()
+        # # Render the offensive and defensive coordinates
+        # self.game_interface.renderer.begin_rendering()
+        # self.game_interface.renderer.draw_string_2d(20, 400, 1, 1, f"Offensive Car: {offensive_x_location}, {offensive_y_location}", self.renderer.yellow())
+        # self.game_interface.renderer.draw_string_2d(20, 460, 1, 1, f"Defensive Car: {defensive_x_location}, {defensive_y_location}", self.renderer.yellow())
+        # self.game_interface.renderer.end_rendering()
 
 
         # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
         ball_offset = 600
+        ball_x_location = offensive_x_location + (ball_offset * np.cos(offensive_car_yaw)) + np.random.random()*200-100
         if self.mirrored:
-            ball_offset = -ball_offset
-        ball_x_location = offensive_x_location + ball_offset * np.cos(offensive_car_yaw) + np.random.random()*200-100
-        ball_y_location = offensive_y_location + ball_offset * np.sin(offensive_car_yaw) + np.random.random()*200-100
+            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) - np.random.random()*200-100
+        else:
+            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) + np.random.random()*200-100
+
+        self.game_interface.renderer.begin_rendering()
+        self.game_interface.renderer.draw_string_2d(20, 400, 1, 1, f"Offensive Car: {offensive_x_location}, {offensive_y_location}", self.renderer.yellow())
+        self.game_interface.renderer.draw_string_2d(20, 460, 1, 1, f"Defensive Car: {defensive_x_location}, {defensive_y_location}", self.renderer.yellow())
+        self.game_interface.renderer.draw_string_2d(20, 520, 1, 1, f"Ball: {ball_x_location}, {ball_y_location}", self.renderer.yellow())
+        self.game_interface.renderer.end_rendering()
+
         ball_z_location = 93 + np.random.random()*200
         ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
 
