@@ -40,10 +40,6 @@ class DefenseMiniGame(BaseScript):
         self.standard_kickoffs = 'Off'
         self.error_timer = 0
         self.circle = [(round(np.cos(2*np.pi/120*x)*1200),round(np.sin(2*np.pi/120*x)*1200),15) for x in range(0,120+1)]
-        try:
-            self.defeats_buffer = np.load('Omus_replay_states.npy')
-        except:
-            self.defeats_buffer = np.empty((0,37))
 
     def run(self):
         while True:
@@ -208,15 +204,18 @@ class DefenseMiniGame(BaseScript):
         # Defensive location should be +-300 X units away from offensive car, and 1000 to 1500 Y units away towards the goal
         defensive_x_location = offensive_x_location + np.random.random()*600-300
         if self.mirrored:
-            defensive_y_location = offensive_y_location - np.random.random()*1000-1500
-        else:
             defensive_y_location = offensive_y_location + np.random.random()*1000-1500
+        else:
+            defensive_y_location = offensive_y_location - np.random.random()*1000-1500
             
         defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 17)
 
         # Render the offensive and defensive coordinates
-        self.game_interface.renderer.draw_string_2d(offensive_x_location, offensive_y_location, 1, 1, "Offensive Car", self.renderer.red())
-        self.game_interface.renderer.draw_string_2d(defensive_x_location, defensive_y_location, 1, 1, "Defensive Car", self.renderer.blue())
+        self.game_interface.renderer.begin_rendering()
+        self.game_interface.renderer.draw_string_2d(20, 400, 1, 1, f"Offensive Car: {offensive_x_location}, {offensive_y_location}", self.renderer.yellow())
+        self.game_interface.renderer.draw_string_2d(20, 460, 1, 1, f"Defensive Car: {defensive_x_location}, {defensive_y_location}", self.renderer.yellow())
+        self.game_interface.renderer.end_rendering()
+
 
         # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
         ball_offset = 600
