@@ -163,15 +163,15 @@ class DefenseMiniGame(BaseScript):
 
         # Add a small random angle to the yaw of each car
         if self.mirrored:
-            offensive_car_yaw = play_yaw_mir + np.random.random()*0.2-0.1*np.pi
-            defensive_car_yaw = play_yaw_mir + np.random.random()*0.2-0.1*np.pi
+            offensive_car_yaw = play_yaw_mir + self.random_between(-0.1*np.pi, 0.1*np.pi)
+            defensive_car_yaw = play_yaw_mir + self.random_between(-0.1*np.pi, 0.1*np.pi)
         else:
-            offensive_car_yaw = play_yaw + np.random.random()*0.2-0.1*np.pi
-            defensive_car_yaw = play_yaw + np.random.random()*0.2-0.1*np.pi
+            offensive_car_yaw = play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
+            defensive_car_yaw = play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
 
         # Get the momentum from the yaw
-        offensive_car_velocity = self.get_velocity_from_yaw(offensive_car_yaw, 800, 1200)
-        defensive_car_velocity = self.get_velocity_from_yaw(defensive_car_yaw, 800, 1200)
+        offensive_car_velocity = self.get_velocity_from_yaw(offensive_car_yaw, min_velocity=800, max_velocity=1200)
+        defensive_car_velocity = self.get_velocity_from_yaw(defensive_car_yaw, min_velocity=800, max_velocity=1200)
 
         if self.mirrored:
             ball_velocity = self.get_velocity_from_yaw(play_yaw_mir)
@@ -182,21 +182,16 @@ class DefenseMiniGame(BaseScript):
         # Want to randomize between:
         # - X: -2000 to 2000
         # - Y: -2500 to 2500
-        x_variance = 4000
-        y_variance = 5000
-        if self.mirrored:
-            x_variance = -x_variance
-            y_variance = -y_variance
-        offensive_x_location = np.random.random()*x_variance-x_variance/2
-        offensive_y_location = np.random.random()*y_variance-y_variance/2
+        offensive_x_location = self.random_between(-2000, 2000)
+        offensive_y_location = self.random_between(-2500, 2500)
         offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
 
         # Defensive location should be +-300 X units away from offensive car, and 1000 to 1500 Y units away towards the goal
-        defensive_x_location = offensive_x_location + np.random.random()*600-300
+        defensive_x_location = offensive_x_location + self.random_between(-300, 300)
         if self.mirrored:
-            defensive_y_location = offensive_y_location + np.random.random()*1000+1500
+            defensive_y_location = offensive_y_location + self.random_between(1000, 1500)
         else:
-            defensive_y_location = offensive_y_location - np.random.random()*1000-1500
+            defensive_y_location = offensive_y_location - self.random_between(1000, 1500)
             
         defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 17)
 
@@ -209,13 +204,13 @@ class DefenseMiniGame(BaseScript):
 
         # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
         ball_offset = 600
-        ball_x_location = offensive_x_location + (ball_offset * np.cos(offensive_car_yaw)) + np.random.random()*200-100
+        ball_x_location = offensive_x_location + (ball_offset * np.cos(offensive_car_yaw)) + self.random_between(-100, 100)
         if self.mirrored:
-            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) - np.random.random()*200-100
+            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) + self.random_between(-100, 100)
         else:
-            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) + np.random.random()*200-100
+            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) + self.random_between(-100, 100)
 
-        ball_z_location = 93 + np.random.random()*200
+        ball_z_location = 93 + self.random_between(0, 200)
         ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
 
         offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
@@ -242,11 +237,11 @@ class DefenseMiniGame(BaseScript):
 
         # Add a small random angle to the yaw of each car
         if self.mirrored:
-            offensive_car_yaw = play_yaw_mir + np.random.random()*0.2-0.1*np.pi
-            defensive_car_yaw = np.pi + np.random.random()*0.2-0.1*np.pi
+            offensive_car_yaw = play_yaw_mir + self.random_between(-0.1*np.pi, 0.1*np.pi)
+            defensive_car_yaw = play_yaw_mir + self.random_between(-0.1*np.pi, 0.1*np.pi)
         else:
-            offensive_car_yaw = play_yaw + np.random.random()*0.2-0.1*np.pi
-            defensive_car_yaw = -np.pi + np.random.random()*0.2-0.1*np.pi
+            offensive_car_yaw = play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
+            defensive_car_yaw = play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
 
         # Get the momentum from the yaw
         offensive_car_velocity = self.get_velocity_from_yaw(offensive_car_yaw, 800, 1200)
@@ -261,17 +256,12 @@ class DefenseMiniGame(BaseScript):
         # Want to randomize between:
         # - X: -2000 to 2000
         # - Y: -2500 to 2500
-        x_variance = 4000
-        y_variance = 5000
-        if self.mirrored:
-            x_variance = -x_variance
-            y_variance = -y_variance
-        offensive_x_location = np.random.random()*x_variance-x_variance/2
-        offensive_y_location = np.random.random()*y_variance-y_variance/2
+        offensive_x_location = self.random_between(-2000, 2000)
+        offensive_y_location = self.random_between(-2500, 2500)
         offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
 
         # Let's do -200 to 200 range for X, Y is -5300 (or +5300 if mirrored)
-        defensive_x_location = np.random.random()*400-200
+        defensive_x_location = self.random_between(-200, 200)
         if self.mirrored:
             defensive_y_location = 5300
         else:
@@ -281,13 +271,13 @@ class DefenseMiniGame(BaseScript):
 
         # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
         ball_offset = 600
-        ball_x_location = offensive_x_location + (ball_offset * np.cos(offensive_car_yaw)) + np.random.random()*200-100
+        ball_x_location = offensive_x_location + (ball_offset * np.cos(offensive_car_yaw)) + self.random_between(-100, 100)
         if self.mirrored:
-            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) - np.random.random()*200-100
+            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) + self.random_between(-100, 100)
         else:
-            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) + np.random.random()*200-100
+            ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) + self.random_between(-100, 100)
 
-        ball_z_location = 93 + np.random.random()*200
+        ball_z_location = 93 + self.random_between(0, 200)
         ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
 
         offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
@@ -347,7 +337,9 @@ class DefenseMiniGame(BaseScript):
         velocity_x = min_velocity + rand1 * (max_velocity - min_velocity) * np.cos(yaw)
         velocity_y = min_velocity + rand1 * (max_velocity - min_velocity) * np.sin(yaw)
         return Vector3(velocity_x, velocity_y, 0)
-        
+
+    def random_between(self, min_value, max_value):
+        return min_value + np.random.random() * (max_value - min_value)
 
     def setup_std_kickoff(self, packet):
         car_states = {}
