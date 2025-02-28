@@ -20,6 +20,7 @@ class Scenario:
         '''
         Create a new scenario based on the game mode
         '''
+        self.offensive_team = 0
         match game_mode:
             case GameMode.SHADOW:
                 self.__setup_shadow_defense()
@@ -36,7 +37,15 @@ class Scenario:
         '''
         Set the game state to the scenario
         '''
-        return GameState(ball=self.ball_state, cars=self.car_states)
+        # Car 0 = Blue, Car 1 = Orange
+        car_states = {}
+        if self.offensive_team == 0:
+            car_states[0] = self.offensive_car_state
+            car_states[1] = self.defensive_car_state
+        else:
+            car_states[0] = self.defensive_car_state
+            car_states[1] = self.offensive_car_state
+        return GameState(ball=self.ball_state, cars=car_states)
 
 
     def Mirror(self):
@@ -55,6 +64,7 @@ class Scenario:
         self.defensive_car_state.physics.velocity.y = -self.defensive_car_state.physics.velocity.y
         self.ball_state.physics.velocity.y = -self.ball_state.physics.velocity.y
 
+        self.offensive_team = 1 - self.offensive_team
     
     def Draw(self):
         '''
@@ -173,7 +183,6 @@ class Scenario:
         '''
         Setup the shadow defense scenario
         '''
-        car_states = {}
         play_yaw, play_yaw_mir = self.get_play_yaw()
 
         # Add a small random angle to the yaw of each car
