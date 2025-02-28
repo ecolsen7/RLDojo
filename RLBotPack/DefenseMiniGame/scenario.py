@@ -20,7 +20,7 @@ class Scenario:
         '''
         Create a new scenario based on the game mode
         '''
-        self.offensive_team = 0
+        self.offensive_team = 1
         match game_mode:
             case GameMode.SHADOW:
                 self.__setup_shadow_defense()
@@ -240,16 +240,16 @@ class Scenario:
         # Get the starting position of each car
         # Want to randomize between:
         # - X: -2000 to 2000
-        # - Y: -2500 to 2500
+        # - Y: -3000 to -1500
         offensive_x_location = self.random_between(-2000, 2000)
-        offensive_y_location = self.random_between(-2500, 2500)
+        offensive_y_location = self.random_between(-3000, -1500)
         offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
 
         # Let's do -200 to 200 range for X, Y is -5300 (or +5300 if mirrored)
         defensive_x_location = self.random_between(-200, 200)
         defensive_y_location = -5600
 
-        defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 17)
+        defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 27)
 
         # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
         ball_offset = 600
@@ -277,7 +277,70 @@ class Scenario:
         self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
 
     def __setup_shot_defense(self):
-        pass
+        # Same as net defense, but the ball is flying toward the offensive car
+        car_states = {}
+        play_yaw, play_yaw_mir = self.get_play_yaw()
+
+        # Add a small random angle to the yaw of each car
+        offensive_car_yaw = play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
+        defensive_car_yaw = play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
+
+        # Get the starting velocity from the yaw
+        offensive_car_velocity = self.get_velocity_from_yaw(offensive_car_yaw, 800, 1200)
+        defensive_car_velocity = Vector3(0, 0, 0)
+
+        # Get the starting position of each car
+        # Want to randomize between:
+        # - X: -2000 to 2000
+        # - Y: -2500 to 0
+        offensive_x_location = self.random_between(-2000, 2000)
+        offensive_y_location = self.random_between(-1000, 1500)
+        offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
+
+        # Let's do -200 to 200 range for X, Y is -5300 (or +5300 if mirrored)
+        defensive_x_location = self.random_between(-200, 200)
+        defensive_y_location = -5600
+
+        defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 27)
+
+        # Ball should start from the wall on the opposite X side as the offensive car
+        if offensive_x_location < 0:
+            ball_x_location = 3500
+        else:
+            ball_x_location = -3500
+
+        # Ball should start close to the goal 
+        ball_y_location = self.random_between(-4500, -3500)
+        ball_z_location = 93 + self.random_between(0, 2000)
+        ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
+
+        # Ball should be heading in front of the offensive car
+        # calculate 1500 total units in the direction the offensive car is facing
+        x_component = 1500 * np.cos(offensive_car_yaw)
+        y_component = 1500 * np.sin(offensive_car_yaw)
+        ball_target_x_location = offensive_x_location + x_component
+        ball_target_y_location = offensive_y_location + y_component
+        delta_x = ball_target_x_location - ball_x_location
+        delta_y = ball_target_y_location - ball_y_location
+        velocity_magnitude = self.random_between(0.4, 0.5)
+        ball_velocity = Vector3(delta_x*velocity_magnitude, delta_y*velocity_magnitude, self.random_between(0, 300))
+
+        # In net mode, defensive car yaw should be facing the ball
+        # Get the difference between the defensive car and the ball
+        defensive_car_x = defensive_x_location
+        defensive_car_y = defensive_y_location
+        ball_x = ball_x_location
+        ball_y = ball_y_location
+
+        # Defensive car should just be facing forward
+        defensive_car_yaw = np.pi / 2
+
+        self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
+                        angular_velocity=Vector3(0, 0, 0)))
+        self.defensive_car_state = CarState(boost_amount=100, physics=Physics(location=defensive_car_position, rotation=Rotator(yaw=defensive_car_yaw, pitch=0, roll=0), velocity=defensive_car_velocity,
+                        angular_velocity=Vector3(0, 0, 0)))
+        
+        self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
 
     def __setup_sidewall_defense(self):
         pass
