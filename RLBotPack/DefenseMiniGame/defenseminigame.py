@@ -67,34 +67,34 @@ class DefenseMiniGame(BaseScript):
                 keyboard.add_hotkey('5', self.set_sidewall_mode)
                 keyboard.add_hotkey('6', self.set_carry_mode)
             
-            # for standard kickoff, allow time for boost pads to respawn
-            if self.standard_kickoffs == 'On':
-                self.pause_time = 4
-            else:
-                self.pause_time = 1
+            self.pause_time = 1
 
             # rendering
             self.do_rendering()
 
-            # match statement state machine for game phase
             match self.game_phase:
                 case Phase.SCORED:
                     self.game_phase = Phase.SETUP
 
+                # This is where we set up the scenario and set the game state
                 case Phase.SETUP:
                     scenario = Scenario(self.game_mode)
+                    if self.mirrored:
+                        scenario.Mirror()
                     self.game_state = scenario.GetGameState()
                     self.set_game_state(self.game_state)
 
                     self.prev_time = self.cur_time
                     self.game_phase = Phase.PAUSED
 
+                # A small pause to prep the player and wait for goal scored to expire
                 case Phase.PAUSED:
                     if (self.cur_time - self.prev_time) < self.pause_time or self.goal_scored(packet) or packet.game_info.is_kickoff_pause:
                         self.set_game_state(self.game_state)
                     else:
                         self.game_phase = Phase.ACTIVE
 
+                # Phase in which the scenario plays out
                 case Phase.ACTIVE:
                     if self.disable_goal_reset == True:
                         if self.goal_scored(packet):

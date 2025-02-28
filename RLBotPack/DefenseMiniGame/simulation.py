@@ -5,7 +5,7 @@ from scenario import Scenario, GameMode
 # merely reference its module from somewhere
 if __name__ == "__main__":
     # scenario = Scenario(GameMode.SHADOW)
-    scenario = Scenario(GameMode.NET)
+    scenario = Scenario(GameMode.SHADOW)
     scenario.Draw()
     scenario.Mirror()
     scenario.Draw()
