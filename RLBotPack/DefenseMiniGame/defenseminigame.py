@@ -60,6 +60,7 @@ class DefenseMiniGame(BaseScript):
                 if mutators.RespawnTimeOption() == 3:
                     self.disable_goal_reset = True
                 # initialise reading keyboard for menu selection
+                keyboard.add_hotkey('0', self.clear_score)
                 keyboard.add_hotkey('1', self.mirror_toggle) 
                 keyboard.add_hotkey('2', self.set_shadow_mode)
                 keyboard.add_hotkey('3', self.set_net_mode)
@@ -101,11 +102,14 @@ class DefenseMiniGame(BaseScript):
                             self.game_phase = Phase.SETUP
                     if packet.game_info.is_kickoff_pause:
                         self.game_phase = Phase.SETUP
+
+                    # Only timeout if the ball has touched the ground
                     if (self.cur_time - self.prev_time) > 10.0:
-                        # Add a goal to the defensive team
-                        self.score_for_team(1 if self.mirrored else 0)
-                        self.game_phase = Phase.SCORED
-                        self.scored_time = self.cur_time
+                        if packet.game_ball.physics.location.z < 100:
+                            # Add a goal to the defensive team
+                            self.score_for_team(1 if self.mirrored else 0)
+                            self.game_phase = Phase.SCORED
+                            self.scored_time = self.cur_time
                 case _:
                     pass
             
@@ -122,6 +126,7 @@ class DefenseMiniGame(BaseScript):
         color2 = self.renderer.lime()
         text = f"Omus is about GrandChamp for the base 50-MiniGame\
         \nSearch 'omus setup' in RLBot discord if you are having issues\
+        \n'0' clear score\
         \n'1' toggle mirrored: {self.mirrored}\
         \n'2' set gamemode to shadow: {self.game_mode}\
         \n'3' set gamemode to net: {self.game_mode}\
@@ -290,6 +295,10 @@ class DefenseMiniGame(BaseScript):
     #         self.text2 = "Error: Please set Omus to Blue Team"
     #         self.error_timer = self.cur_time
 
+    def clear_score(self):
+        # Set the game state to have 0 score for both teams
+        pass
+
     def mirror_toggle(self):
         if self.mirrored:
             self.mirrored = False
@@ -298,19 +307,19 @@ class DefenseMiniGame(BaseScript):
 
 
     def set_shadow_mode(self):
-        self.game_mode = 'shadow'
+        self.game_mode = GameMode.SHADOW
 
     def set_net_mode(self):
-        self.game_mode = 'net'
+        self.game_mode = GameMode.NET
 
     def set_shot_mode(self):
-        self.game_mode = 'shot'
+        self.game_mode = GameMode.SHOT
 
     def set_sidewall_mode(self):
-        self.game_mode = 'sidewall'
+        self.game_mode = GameMode.SIDEWALL
 
     def set_carry_mode(self):
-        self.game_mode = 'carry'
+        self.game_mode = GameMode.CARRY
 
 
 # You can use this __name__ == '__main__' thing to ensure that the script doesn't start accidentally if you
