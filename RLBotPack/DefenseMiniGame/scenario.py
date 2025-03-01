@@ -7,6 +7,7 @@ class OffensiveMode(Enum):
     POSSESSION = 0
     PASS = 1
     CARRY = 2
+    SIDEWALL = 3
 
 class DefensiveMode(Enum):
     SHADOW = 0
@@ -35,6 +36,8 @@ class Scenario:
                 self.__setup_pass_offense()
             case OffensiveMode.CARRY:
                 self.__setup_carry_offense()
+            case OffensiveMode.SIDEWALL:
+                self.__setup_sidewall_offense()
 
         match defensive_mode:
             case DefensiveMode.SHADOW:
@@ -214,7 +217,23 @@ class Scenario:
         self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
 
     def __setup_carry_offense(self):
-        pass
+       # Mostly same as possession, but ball starts on top of the car
+       self.play_yaw, play_yaw_mir = self.get_play_yaw()
+
+       offensive_car_yaw = self.play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
+       offensive_car_velocity = self.get_velocity_from_yaw(offensive_car_yaw, min_velocity=800, max_velocity=1200)
+       ball_velocity = offensive_car_velocity
+
+       offensive_x_location = self.random_between(-2000, 2000)
+       offensive_y_location = self.random_between(-2500, 2500)
+       offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
+
+       ball_position = Vector3(offensive_x_location, offensive_y_location, 120)
+
+       self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
+                        angular_velocity=Vector3(0, 0, 0)))
+       
+       self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
 
     def __setup_pass_offense(self):
         self.play_yaw, play_yaw_mir = self.get_play_yaw()
@@ -260,6 +279,35 @@ class Scenario:
         self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
         
+        self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
+
+    def __setup_sidewall_offense(self):
+        # Play yaw is going to be slightly toward the net but mostly toward the side wall
+        self.play_yaw = self.random_between(5.8, 6.2)
+
+        # Offensive car should be 1000 units from the side wall
+        offensive_x_location = SIDE_WALL - self.random_between(1500, 2500)
+
+        # Sidewall setups shouldn't be too close to the goal
+        offensive_y_location = self.random_between(-1500, 1500)
+
+        # Add a small random angle to the yaw of each car
+        offensive_car_yaw = self.play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
+        offensive_car_velocity = self.get_velocity_from_yaw(offensive_car_yaw, min_velocity=800, max_velocity=1200)
+        ball_velocity = self.get_velocity_from_yaw(self.play_yaw, min_velocity=1500, max_velocity=2000)
+
+        offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
+
+        # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
+        ball_offset = 600
+        ball_x_location = offensive_x_location + (ball_offset * np.cos(offensive_car_yaw)) + self.random_between(-100, 100)
+        ball_y_location = offensive_y_location + (ball_offset * np.sin(offensive_car_yaw)) + self.random_between(-100, 100)
+
+        ball_z_location = 93 + self.random_between(0, 30)
+        ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
+
+        self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
+                        angular_velocity=Vector3(0, 0, 0)))
         self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
 
     def __setup_shadow_defense(self):
@@ -360,8 +408,9 @@ class Scenario:
         # Z = 0
         # Magnitude is the momentum
         # rand1 = np.random.random()
+        velocity_factor = self.random_between(min_velocity, max_velocity)
         # velocity_x = min_velocity + rand1 * (max_velocity - min_velocity) * np.cos(yaw)
         # velocity_y = min_velocity + rand1 * (max_velocity - min_velocity) * np.sin(yaw)
-        velocity_x = 1000 * np.cos(yaw)
-        velocity_y = 1000 * np.sin(yaw)
+        velocity_x = velocity_factor * np.cos(yaw)
+        velocity_y = velocity_factor * np.sin(yaw)
         return Vector3(velocity_x, velocity_y, 0)
