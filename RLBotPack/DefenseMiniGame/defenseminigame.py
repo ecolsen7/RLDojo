@@ -64,12 +64,8 @@ class DefenseMiniGame(BaseScript):
                 # initialise reading keyboard for menu selection
                 keyboard.add_hotkey('0', self.clear_score)
                 keyboard.add_hotkey('1', self.mirror_toggle)
-                keyboard.add_hotkey('2', self.set_possession_offense)
-                keyboard.add_hotkey('3', self.set_pass_offense)
-                keyboard.add_hotkey('4', self.set_carry_offense)
-                keyboard.add_hotkey('5', self.set_shadow_defense)
-                keyboard.add_hotkey('6', self.set_net_defense)
-                keyboard.add_hotkey('7', self.set_corner_defense)
+                keyboard.add_hotkey('o', self.cycle_offensive_mode)
+                keyboard.add_hotkey('d', self.cycle_defensive_mode)
                 keyboard.add_hotkey(keyboard.KEY_DOWN, self.decrease_timeout)
                 keyboard.add_hotkey(keyboard.KEY_UP, self.increase_timeout)
             
@@ -129,25 +125,25 @@ class DefenseMiniGame(BaseScript):
     def do_rendering(self):
         color = self.renderer.yellow()
         color2 = self.renderer.lime()
-        text = f"Omus is about GrandChamp for the base 50-MiniGame\
-        \nSearch 'omus setup' in RLBot discord if you are having issues\
+        text = f"Welcome to the HumanGym. Choose your workout:\
         \n'0' clear score\
-        \n'1' toggle mirrored: {self.mirrored}\
-        \n'2' set offense mode to possession: {self.offensive_mode}\
-        \n'3' set offense mode to pass: {self.offensive_mode}\
-        \n'4' set offense mode to carry: {self.offensive_mode}\
-        \n'5' set defense mode to shadow: {self.defensive_mode}\
-        \n'6' set defense mode to net: {self.defensive_mode}\
-        \n'7' set defense mode to corner: {self.defensive_mode}\
+        \n'1' toggle human on offense: {self.mirrored}\
         \n'DOWN' decrease timeout seconds: {self.timeout}\
-        \n'UP' increase timeout seconds: {self.timeout}"
+        \n'UP' increase timeout seconds: {self.timeout}\
+        \nPress 'o' to cycle offensive mode\
+        \nPress 'd' to cycle defensive mode\
+        "
+        offensive_text = "Offense Mode:"
+        for mode in OffensiveMode:
+            offensive_text += f"\n{mode.name} {'<--' if self.offensive_mode == mode else ''}"
+        defensive_text = "Defense Mode:"
+        for mode in DefensiveMode:
+            defensive_text += f"\n{mode.name} {'<--' if self.defensive_mode == mode else ''}"
         self.game_interface.renderer.begin_rendering()
         self.game_interface.renderer.draw_polyline_3d(self.circle, color)
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
-        self.game_interface.renderer.draw_string_2d(900, 420, 5, 5, self.kickoff_countdown, color2)
-        self.game_interface.renderer.draw_string_2d(900, 420, 5, 5, self.kickoff_countdown, color2)
-        self.game_interface.renderer.draw_string_2d(900, 420, 5, 5, self.kickoff_countdown, color2)
-        # self.game_interface.renderer.draw_string_2d(20, 200, 1, 1, self.text2 if self.cur_time-self.error_timer < 3 else "" , color) - Currently Unavailable
+        self.game_interface.renderer.draw_string_2d(20, 200, 1, 1, offensive_text, color)
+        self.game_interface.renderer.draw_string_2d(200, 200, 1, 1, defensive_text, color)
         self.game_interface.renderer.end_rendering()
 
     def goal_scored(self, packet):
@@ -304,28 +300,22 @@ class DefenseMiniGame(BaseScript):
             self.mirrored = True
         self.game_phase = Phase.SETUP
 
-    def set_possession_offense(self):
-        self.offensive_mode = OffensiveMode.POSSESSION
+    def cycle_offensive_mode(self):
+        # Go to the next mode in the enum
+        mode_int = OffensiveMode(self.offensive_mode).value
+        if mode_int == len(OffensiveMode) - 1:
+            self.offensive_mode = OffensiveMode(0)
+        else:
+            self.offensive_mode = OffensiveMode(mode_int + 1)
         self.game_phase = Phase.SETUP
 
-    def set_pass_offense(self):
-        self.offensive_mode = OffensiveMode.PASS
-        self.game_phase = Phase.SETUP
-
-    def set_carry_offense(self):
-        self.offensive_mode = OffensiveMode.CARRY
-        self.game_phase = Phase.SETUP
-
-    def set_shadow_defense(self):
-        self.defensive_mode = DefensiveMode.SHADOW
-        self.game_phase = Phase.SETUP
-
-    def set_net_defense(self):
-        self.defensive_mode = DefensiveMode.NET
-        self.game_phase = Phase.SETUP
-
-    def set_corner_defense(self):
-        self.defensive_mode = DefensiveMode.CORNER
+    def cycle_defensive_mode(self):
+        # Go to the next mode in the enum
+        mode_int = DefensiveMode(self.defensive_mode).value
+        if mode_int == len(DefensiveMode) - 1:
+            self.defensive_mode = DefensiveMode(0)
+        else:
+            self.defensive_mode = DefensiveMode(mode_int + 1)
         self.game_phase = Phase.SETUP
 
     def decrease_timeout(self):
