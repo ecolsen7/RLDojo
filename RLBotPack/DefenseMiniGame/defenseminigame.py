@@ -4,7 +4,7 @@ import keyboard
 
 from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator, GameInfoState
-from scenario import Scenario, GameMode
+from scenario import Scenario, OffensiveMode, DefensiveMode
 
 class Phase(Enum):
     PAUSED = -1
@@ -20,7 +20,8 @@ class DefenseMiniGame(BaseScript):
     def __init__(self):
         super().__init__("DefenseMiniGame")
         self.game_phase = Phase.SETUP
-        self.game_mode = GameMode.SHADOW
+        self.offensive_mode = OffensiveMode.POSSESSION
+        self.defensive_mode = DefensiveMode.SHADOW
         self.mirrored = False
         self.scoreDiff_prev = 0
         self.omusDefeat_prev = 0
@@ -61,12 +62,13 @@ class DefenseMiniGame(BaseScript):
                     self.disable_goal_reset = True
                 # initialise reading keyboard for menu selection
                 keyboard.add_hotkey('0', self.clear_score)
-                keyboard.add_hotkey('1', self.mirror_toggle) 
-                keyboard.add_hotkey('2', self.set_shadow_mode)
-                keyboard.add_hotkey('3', self.set_net_mode)
-                keyboard.add_hotkey('4', self.set_shot_mode)
-                keyboard.add_hotkey('5', self.set_sidewall_mode)
-                keyboard.add_hotkey('6', self.set_carry_mode)
+                keyboard.add_hotkey('1', self.mirror_toggle)
+                keyboard.add_hotkey('2', self.set_possession_offense)
+                keyboard.add_hotkey('3', self.set_pass_offense)
+                keyboard.add_hotkey('4', self.set_carry_offense)
+                keyboard.add_hotkey('5', self.set_shadow_defense)
+                keyboard.add_hotkey('6', self.set_net_defense)
+                keyboard.add_hotkey('7', self.set_corner_defense)
             
             self.pause_time = 1
 
@@ -79,7 +81,7 @@ class DefenseMiniGame(BaseScript):
 
                 # This is where we set up the scenario and set the game state
                 case Phase.SETUP:
-                    scenario = Scenario(self.game_mode)
+                    scenario = Scenario(self.offensive_mode, self.defensive_mode)
                     if self.mirrored:
                         scenario.Mirror()
                     self.game_state = scenario.GetGameState()
@@ -128,11 +130,12 @@ class DefenseMiniGame(BaseScript):
         \nSearch 'omus setup' in RLBot discord if you are having issues\
         \n'0' clear score\
         \n'1' toggle mirrored: {self.mirrored}\
-        \n'2' set gamemode to shadow: {self.game_mode}\
-        \n'3' set gamemode to net: {self.game_mode}\
-        \n'4' set gamemode to shot: {self.game_mode}\
-        \n'5' set gamemode to sidewall: {self.game_mode}\
-        \n'6' set gamemode carry: {self.game_mode}"
+        \n'2' set offense mode to possession: {self.offensive_mode}\
+        \n'3' set offense mode to pass: {self.offensive_mode}\
+        \n'4' set offense mode to carry: {self.offensive_mode}\
+        \n'5' set defense mode to shadow: {self.defensive_mode}\
+        \n'6' set defense mode to net: {self.defensive_mode}\
+        \n'7' set defense mode to corner: {self.defensive_mode}"
         self.game_interface.renderer.begin_rendering()
         self.game_interface.renderer.draw_polyline_3d(self.circle, color)
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
@@ -284,19 +287,9 @@ class DefenseMiniGame(BaseScript):
         cur_state[36] = ball.physics.angular_velocity.z
         return np.expand_dims(cur_state, axis=0)
 
-    # Currently Unavailable
-    # def menu_1_toggle(self):
-    #     if self.blue_omus:
-    #         self.record_omus = not self.record_omus
-    #         if not self.record_omus:
-    #             self.state_buffer = np.empty((0,37))
-    #             self.standard_kickoffs = 'Off'
-    #     else:
-    #         self.text2 = "Error: Please set Omus to Blue Team"
-    #         self.error_timer = self.cur_time
-
     def clear_score(self):
         # Set the game state to have 0 score for both teams
+        # Nevermind I don't actually know how to do this
         pass
 
     def mirror_toggle(self):
@@ -305,21 +298,23 @@ class DefenseMiniGame(BaseScript):
         else:
             self.mirrored = True
 
+    def set_possession_offense(self):
+        self.offensive_mode = OffensiveMode.POSSESSION
 
-    def set_shadow_mode(self):
-        self.game_mode = GameMode.SHADOW
+    def set_pass_offense(self):
+        self.offensive_mode = OffensiveMode.PASS
 
-    def set_net_mode(self):
-        self.game_mode = GameMode.NET
+    def set_carry_offense(self):
+        self.offensive_mode = OffensiveMode.CARRY
 
-    def set_shot_mode(self):
-        self.game_mode = GameMode.SHOT
+    def set_shadow_defense(self):
+        self.defensive_mode = DefensiveMode.SHADOW
 
-    def set_sidewall_mode(self):
-        self.game_mode = GameMode.SIDEWALL
+    def set_net_defense(self):
+        self.defensive_mode = DefensiveMode.NET
 
-    def set_carry_mode(self):
-        self.game_mode = GameMode.CARRY
+    def set_corner_defense(self):
+        self.defensive_mode = DefensiveMode.CORNER
 
 
 # You can use this __name__ == '__main__' thing to ensure that the script doesn't start accidentally if you
