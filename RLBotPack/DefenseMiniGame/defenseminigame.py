@@ -22,6 +22,7 @@ class DefenseMiniGame(BaseScript):
         self.game_phase = Phase.SETUP
         self.offensive_mode = OffensiveMode.POSSESSION
         self.defensive_mode = DefensiveMode.SHADOW
+        self.timeout = 10.0
         self.mirrored = False
         self.scoreDiff_prev = 0
         self.omusDefeat_prev = 0
@@ -69,6 +70,8 @@ class DefenseMiniGame(BaseScript):
                 keyboard.add_hotkey('5', self.set_shadow_defense)
                 keyboard.add_hotkey('6', self.set_net_defense)
                 keyboard.add_hotkey('7', self.set_corner_defense)
+                keyboard.add_hotkey(keyboard.KEY_DOWN, self.decrease_timeout)
+                keyboard.add_hotkey(keyboard.KEY_UP, self.increase_timeout)
             
             self.pause_time = 1
 
@@ -106,7 +109,7 @@ class DefenseMiniGame(BaseScript):
                         self.game_phase = Phase.SETUP
 
                     # Only timeout if the ball has touched the ground
-                    if (self.cur_time - self.prev_time) > 10.0:
+                    if (self.cur_time - self.prev_time) > self.timeout:
                         if packet.game_ball.physics.location.z < 100:
                             # Add a goal to the defensive team
                             self.score_for_team(1 if self.mirrored else 0)
@@ -135,7 +138,9 @@ class DefenseMiniGame(BaseScript):
         \n'4' set offense mode to carry: {self.offensive_mode}\
         \n'5' set defense mode to shadow: {self.defensive_mode}\
         \n'6' set defense mode to net: {self.defensive_mode}\
-        \n'7' set defense mode to corner: {self.defensive_mode}"
+        \n'7' set defense mode to corner: {self.defensive_mode}\
+        \n'DOWN' decrease timeout seconds: {self.timeout}\
+        \n'UP' increase timeout seconds: {self.timeout}"
         self.game_interface.renderer.begin_rendering()
         self.game_interface.renderer.draw_polyline_3d(self.circle, color)
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
@@ -297,25 +302,37 @@ class DefenseMiniGame(BaseScript):
             self.mirrored = False
         else:
             self.mirrored = True
+        self.game_phase = Phase.SETUP
 
     def set_possession_offense(self):
         self.offensive_mode = OffensiveMode.POSSESSION
+        self.game_phase = Phase.SETUP
 
     def set_pass_offense(self):
         self.offensive_mode = OffensiveMode.PASS
+        self.game_phase = Phase.SETUP
 
     def set_carry_offense(self):
         self.offensive_mode = OffensiveMode.CARRY
+        self.game_phase = Phase.SETUP
 
     def set_shadow_defense(self):
         self.defensive_mode = DefensiveMode.SHADOW
+        self.game_phase = Phase.SETUP
 
     def set_net_defense(self):
         self.defensive_mode = DefensiveMode.NET
+        self.game_phase = Phase.SETUP
 
     def set_corner_defense(self):
         self.defensive_mode = DefensiveMode.CORNER
+        self.game_phase = Phase.SETUP
 
+    def decrease_timeout(self):
+        self.timeout -= 1
+
+    def increase_timeout(self):
+        self.timeout += 1
 
 # You can use this __name__ == '__main__' thing to ensure that the script doesn't start accidentally if you
 # merely reference its module from somewhere

@@ -51,11 +51,11 @@ class Scenario:
         # Car 0 = Blue, Car 1 = Orange
         car_states = {}
         if self.offensive_team == 0:
+            car_states[1] = self.offensive_car_state
+            car_states[0] = self.defensive_car_state
+        else:
             car_states[0] = self.offensive_car_state
             car_states[1] = self.defensive_car_state
-        else:
-            car_states[0] = self.defensive_car_state
-            car_states[1] = self.offensive_car_state
         return GameState(ball=self.ball_state, cars=car_states)
 
 
@@ -253,7 +253,9 @@ class Scenario:
         delta_x = ball_target_x_location - ball_x_location
         delta_y = ball_target_y_location - ball_y_location
         velocity_magnitude = self.random_between(0.4, 0.5)
-        ball_velocity = Vector3(delta_x*velocity_magnitude, delta_y*velocity_magnitude, self.random_between(0, 300))
+
+        # Cap Y velocity component, or else it goes past the offensive car sometimes
+        ball_velocity = Vector3(delta_x*velocity_magnitude, min(delta_y*velocity_magnitude, 750), self.random_between(0, 300))
 
         self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
@@ -310,7 +312,7 @@ class Scenario:
         # This will be ~1000 units from the back wall, ~500 units from the side wall
         # X side should be randomized
         defensive_x_location = self.random_between(SIDE_WALL - 500, SIDE_WALL - 1000)
-        defensive_y_location = self.random_between(BACK_WALL + 1000, BACK_WALL + 1500)
+        defensive_y_location = self.random_between(BACK_WALL + 1500, BACK_WALL + 2500)
 
         defensive_x_target = SIDE_WALL - 2000
         defensive_y_target = BACK_WALL + 500
