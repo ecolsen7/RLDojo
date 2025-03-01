@@ -3,12 +3,15 @@ from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics,
 import matplotlib.pyplot as plt
 from enum import Enum
 
-class GameMode(Enum):
+class OffensiveMode(Enum):
+    POSSESSION = 0
+    PASS = 1
+    CARRY = 2
+
+class DefensiveMode(Enum):
     SHADOW = 0
     NET = 1
-    SHOT = 2
-    SIDEWALL = 3
-    CARRY = 4
+    CORNER = 2
 
 
 class Scenario:
@@ -16,22 +19,26 @@ class Scenario:
     Scenario represents all initial states of a game mode
     Comprised of a BallState and two CarStates (or more, to be added)
     '''
-    def __init__(self, game_mode):
+    def __init__(self, offensive_mode, defensive_mode):
         '''
         Create a new scenario based on the game mode
         '''
-        self.offensive_team = 1
-        match game_mode:
-            case GameMode.SHADOW:
+        self.offensive_team = 0
+        match offensive_mode:
+            case OffensiveMode.POSSESSION:
+                self.__setup_possession_offense()
+            case OffensiveMode.PASS:
+                self.__setup_pass_offense()
+            case OffensiveMode.CARRY:
+                self.__setup_carry_offense()
+
+        match defensive_mode:
+            case DefensiveMode.SHADOW:
                 self.__setup_shadow_defense()
-            case GameMode.NET:
+            case DefensiveMode.NET:
                 self.__setup_net_defense()
-            case GameMode.SHOT:
-                self.__setup_shot_defense()
-            case GameMode.SIDEWALL:
-                self.__setup_sidewall_defense()
-            case GameMode.CARRY:
-                self.__setup_carry_defense()
+            case DefensiveMode.CORNER:
+                self.__setup_corner_defense()
 
     def GetGameState(self):
         '''
@@ -178,35 +185,17 @@ class Scenario:
 
         plt.show()
 
-
-    def __setup_shadow_defense(self):
-        '''
-        Setup the shadow defense scenario
-        '''
-        play_yaw, play_yaw_mir = self.get_play_yaw()
+    def __setup_possession_offense(self):
+        self.play_yaw, play_yaw_mir = self.get_play_yaw()
 
         # Add a small random angle to the yaw of each car
         offensive_car_yaw = play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
-        defensive_car_yaw = play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
-
-        # Get the starting velocity from the yaw
         offensive_car_velocity = self.get_velocity_from_yaw(offensive_car_yaw, min_velocity=800, max_velocity=1200)
-        defensive_car_velocity = self.get_velocity_from_yaw(defensive_car_yaw, min_velocity=800, max_velocity=1200)
         ball_velocity = self.get_velocity_from_yaw(play_yaw, min_velocity=800, max_velocity=1200)
 
-        # Get the starting position of each car
-        # Want to randomize between:
-        # - X: -2000 to 2000
-        # - Y: -2500 to 2500
         offensive_x_location = self.random_between(-2000, 2000)
         offensive_y_location = self.random_between(-2500, 2500)
         offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
-
-        # Defensive location should be +-300 X units away from offensive car, and 1500 to 2500 Y units away towards the goal
-        defensive_x_location = self.random_between(offensive_x_location - 300, offensive_x_location + 300)
-        defensive_y_location = self.random_between(offensive_y_location - 2500, offensive_y_location - 1500)
-            
-        defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 17)
 
         # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
         ball_offset = 600
@@ -218,10 +207,34 @@ class Scenario:
 
         self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
+        self.ball_state = BallState(Physics(location=ball_position, velocity=offensive_car_velocity))
+
+    def __setup_pass_offense(self):
+        pass
+
+    def __setup_carry_offense(self):
+        pass
+
+    def __setup_shadow_defense(self):
+        '''
+        Setup the shadow defense scenario
+        Shadow defense is based off of offensive car stats
+        '''
+
+        # Add a small random angle to the yaw of each car
+        defensive_car_yaw = self.play_yaw + self.random_between(-0.1*np.pi, 0.1*np.pi)
+
+        # Get the starting velocity from the yaw
+        defensive_car_velocity = self.get_velocity_from_yaw(defensive_car_yaw, min_velocity=800, max_velocity=1200)
+
+        # Defensive location should be +-300 X units away from offensive car, and 1500 to 2500 Y units away towards the goal
+        defensive_x_location = self.random_between(self.offensive_car_state.physics.location.x - 300, self.offensive_car_state.physics.location.x + 300)
+        defensive_y_location = self.random_between(self.offensive_car_state.physics.location.y - 2500, self.offensive_car_state.physics.location.y - 1500)
+            
+        defensive_car_position = Vector3(defensive_x_location, defensive_y_location, 17)
+
         self.defensive_car_state = CarState(boost_amount=100, physics=Physics(location=defensive_car_position, rotation=Rotator(yaw=defensive_car_yaw, pitch=0, roll=0), velocity=defensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
-        
-        self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
 
     def __setup_net_defense(self):
         car_states = {}
