@@ -21,7 +21,10 @@ class DefenseMiniGame(BaseScript):
         super().__init__("DefenseMiniGame")
         self.game_phase = Phase.SETUP
         self.offensive_mode = OffensiveMode.POSSESSION
-        self.defensive_mode = DefensiveMode.SHADOW
+        self.defensive_mode = DefensiveMode.NEAR_SHADOW
+        self.scenario_history = []
+        self.freeze_scenario = False
+        self.freeze_scenario_index = 0
         self.timeout = 10.0
         self.mirrored = False
         self.scoreDiff_prev = 0
@@ -66,8 +69,11 @@ class DefenseMiniGame(BaseScript):
                 keyboard.add_hotkey('1', self.mirror_toggle)
                 keyboard.add_hotkey('o', self.cycle_offensive_mode)
                 keyboard.add_hotkey('d', self.cycle_defensive_mode)
-                keyboard.add_hotkey(keyboard.KEY_DOWN, self.decrease_timeout)
-                keyboard.add_hotkey(keyboard.KEY_UP, self.increase_timeout)
+                keyboard.add_hotkey('f', self.freeze_scenario_toggle)
+                keyboard.add_hotkey('left', self.decrease_freeze_scenario_index)
+                keyboard.add_hotkey('right', self.increase_freeze_scenario_index)
+                keyboard.add_hotkey('down', self.decrease_timeout)
+                keyboard.add_hotkey('up', self.increase_timeout)
             
             self.pause_time = 1
 
@@ -80,9 +86,14 @@ class DefenseMiniGame(BaseScript):
 
                 # This is where we set up the scenario and set the game state
                 case Phase.SETUP:
-                    scenario = Scenario(self.offensive_mode, self.defensive_mode)
-                    if self.mirrored:
-                        scenario.Mirror()
+                    if not self.freeze_scenario:
+                        scenario = Scenario(self.offensive_mode, self.defensive_mode)
+                        if self.mirrored:
+                            scenario.Mirror()
+                        self.scenario_history.append(scenario)
+                        self.freeze_scenario_index = len(self.scenario_history) - 1
+                    else:
+                        scenario = self.scenario_history[self.freeze_scenario_index]
                     self.game_state = scenario.GetGameState()
                     self.set_game_state(self.game_state)
 
@@ -126,10 +137,10 @@ class DefenseMiniGame(BaseScript):
         color = self.renderer.yellow()
         color2 = self.renderer.lime()
         text = f"Welcome to the HumanGym. Choose your workout:\
-        \n'0' clear score\
         \n'1' toggle human on offense: {self.mirrored}\
-        \n'DOWN' decrease timeout seconds: {self.timeout}\
-        \n'UP' increase timeout seconds: {self.timeout}\
+        \n'DOWN/UP' decrease/increase timeout seconds: {self.timeout}\
+        \n'f' freeze scenario: {self.freeze_scenario}\
+        \n'LEFT/RIGHT' cycle through scenarios {self.freeze_scenario_index}\
         \nPress 'o' to cycle offensive mode\
         \nPress 'd' to cycle defensive mode\
         "
@@ -323,6 +334,17 @@ class DefenseMiniGame(BaseScript):
 
     def increase_timeout(self):
         self.timeout += 1
+        
+    def freeze_scenario_toggle(self):
+        self.freeze_scenario = not self.freeze_scenario
+
+    def decrease_freeze_scenario_index(self):
+        if self.freeze_scenario_index > 0:
+            self.freeze_scenario_index -= 1
+
+    def increase_freeze_scenario_index(self):   
+        if self.freeze_scenario_index < len(self.scenario_history) - 1:
+            self.freeze_scenario_index += 1
 
 # You can use this __name__ == '__main__' thing to ensure that the script doesn't start accidentally if you
 # merely reference its module from somewhere
