@@ -5,12 +5,38 @@ import keyboard
 from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator, GameInfoState
 from scenario import Scenario, OffensiveMode, DefensiveMode
-
+import utils
 class Phase(Enum):
     PAUSED = -1
     SETUP = 0
     ACTIVE = 1
     SCORED = 2
+    MENU = 3
+    CUSTOM_OFFENSE = 4
+    CUSTOM_BALL = 5
+    CUSTOM_DEFENSE = 6
+
+CUSTOM_MODES = [
+    Phase.CUSTOM_OFFENSE,
+    Phase.CUSTOM_BALL,
+    Phase.CUSTOM_DEFENSE
+]
+
+class CarIndex(Enum):
+    BLUE = 0
+    ORANGE = 1
+    HUMAN = 0
+    BOT = 1
+
+class CustomUpDownSelection(Enum):
+    Y = 1
+    Z = 2
+    PITCH = 3
+
+class CustomLeftRightSelection(Enum):
+    X = 1
+    YAW = 2
+    ROLL = 3
 
 class DefenseMiniGame(BaseScript):
     '''
@@ -22,6 +48,8 @@ class DefenseMiniGame(BaseScript):
         self.game_phase = Phase.SETUP
         self.offensive_mode = OffensiveMode.POSSESSION
         self.defensive_mode = DefensiveMode.NEAR_SHADOW
+        self.custom_updown_selection = CustomUpDownSelection.Y
+        self.custom_leftright_selection = CustomLeftRightSelection.X
         self.scenario_history = []
         self.freeze_scenario = False
         self.freeze_scenario_index = 0
@@ -65,20 +93,36 @@ class DefenseMiniGame(BaseScript):
                 if mutators.RespawnTimeOption() == 3:
                     self.disable_goal_reset = True
                 # initialise reading keyboard for menu selection
+                keyboard.add_hotkey('m', self.menu_toggle)
                 keyboard.add_hotkey('0', self.clear_score)
                 keyboard.add_hotkey('1', self.mirror_toggle)
                 keyboard.add_hotkey('o', self.cycle_offensive_mode)
                 keyboard.add_hotkey('d', self.cycle_defensive_mode)
                 keyboard.add_hotkey('f', self.freeze_scenario_toggle)
-                keyboard.add_hotkey('left', self.decrease_freeze_scenario_index)
-                keyboard.add_hotkey('right', self.increase_freeze_scenario_index)
-                keyboard.add_hotkey('down', self.decrease_timeout)
-                keyboard.add_hotkey('up', self.increase_timeout)
-            
+                # keyboard.add_hotkey('z', self.decrease_freeze_scenario_index)
+                # keyboard.add_hotkey('x', self.increase_freeze_scenario_index)
+                keyboard.add_hotkey('i', self.decrease_timeout)
+                keyboard.add_hotkey('u', self.increase_timeout)
+                keyboard.add_hotkey('c', self.create_custom_mode)
+                keyboard.add_hotkey('left', self.left_handler)
+                keyboard.add_hotkey('right', self.right_handler)
+                keyboard.add_hotkey('down', self.down_handler)
+                keyboard.add_hotkey('up', self.up_handler)
+                keyboard.add_hotkey('n', self.next_custom_step)
+                keyboard.add_hotkey('b', self.prev_custom_step)
+                keyboard.add_hotkey('x', self.custom_select_x)
+                keyboard.add_hotkey('y', self.custom_select_y)
+                keyboard.add_hotkey('z', self.custom_select_z)
+                keyboard.add_hotkey('p', self.custom_select_pitch)
+                keyboard.add_hotkey('y', self.custom_select_yaw)
+                keyboard.add_hotkey('r', self.custom_select_roll)
+                keyboard.add_hotkey('+', self.increase_velocity)
+                keyboard.add_hotkey('-', self.decrease_velocity)
             self.pause_time = 1
 
             # rendering
-            self.do_rendering()
+            if self.game_phase not in [Phase.MENU, *CUSTOM_MODES]:
+                self.do_rendering()
 
             match self.game_phase:
                 case Phase.SCORED:
@@ -86,19 +130,15 @@ class DefenseMiniGame(BaseScript):
 
                 # This is where we set up the scenario and set the game state
                 case Phase.SETUP:
-                    if not self.freeze_scenario:
-                        scenario = Scenario(self.offensive_mode, self.defensive_mode)
-                        if self.mirrored:
-                            scenario.Mirror()
-                        self.scenario_history.append(scenario)
-                        self.freeze_scenario_index = len(self.scenario_history) - 1
-                    else:
-                        scenario = self.scenario_history[self.freeze_scenario_index]
-                    self.game_state = scenario.GetGameState()
-                    self.set_game_state(self.game_state)
+                    self.set_next_game_state()
 
                     self.prev_time = self.cur_time
                     self.game_phase = Phase.PAUSED
+
+                # Freeze the game while the menu is open
+                case Phase.MENU:
+                    self.set_game_state(self.game_state)
+                    self.menu_rendering()
 
                 # A small pause to prep the player and wait for goal scored to expire
                 case Phase.PAUSED:
@@ -122,8 +162,33 @@ class DefenseMiniGame(BaseScript):
                             self.score_for_team(1 if self.mirrored else 0)
                             self.game_phase = Phase.SCORED
                             self.scored_time = self.cur_time
+                
+                case Phase.CUSTOM_OFFENSE:
+                    self.custom_sandbox_rendering()
+                    self.set_game_state(self.game_state)
+
+                case Phase.CUSTOM_BALL:
+                    self.custom_sandbox_rendering()
+                    self.set_game_state(self.game_state)
+
+                case Phase.CUSTOM_DEFENSE:
+                    self.custom_sandbox_rendering()
+                    self.set_game_state(self.game_state)
+
                 case _:
                     pass
+
+    def set_next_game_state(self):
+        if not self.freeze_scenario:
+            scenario = Scenario(self.offensive_mode, self.defensive_mode)
+            if self.mirrored:
+                scenario.Mirror()
+            self.scenario_history.append(scenario)
+            self.freeze_scenario_index = len(self.scenario_history) - 1
+        else:
+            scenario = self.scenario_history[self.freeze_scenario_index]
+        self.game_state = scenario.GetGameState()
+        self.set_game_state(self.game_state)
             
     def score_for_team(self, team):
         if team == 0:
@@ -136,13 +201,21 @@ class DefenseMiniGame(BaseScript):
     def do_rendering(self):
         color = self.renderer.yellow()
         color2 = self.renderer.lime()
-        text = f"Welcome to the HumanGym. Choose your workout:\
-        \n'1' toggle human on offense: {self.mirrored}\
-        \n'DOWN/UP' decrease/increase timeout seconds: {self.timeout}\
-        \n'f' freeze scenario: {self.freeze_scenario}\
-        \n'LEFT/RIGHT' cycle through scenarios {self.freeze_scenario_index}\
-        \nPress 'o' to cycle offensive mode\
-        \nPress 'd' to cycle defensive mode\
+        text = f"Welcome to the HumanGym. Press 'm' to enter menu"
+        self.game_interface.renderer.begin_rendering()
+        self.game_interface.renderer.draw_polyline_3d(self.circle, color)
+        self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
+        self.game_interface.renderer.end_rendering()
+
+    def menu_rendering(self):
+        text = f"Welcome to the HumanGym! Press [m] to exit menu\r\n\
+        \n[0] reset score\
+        \n[1] toggle human on offense: {self.mirrored}\
+        \n[d/i] decrease/increase timeout seconds: {self.timeout}\
+        \n[f] freeze scenario: {self.freeze_scenario}\
+        \n[z/x] cycle through scenarios {self.freeze_scenario_index}\
+        \n[o] cycle offensive mode\
+        \n[d] cycle defensive mode\
         "
         offensive_text = "Offense Mode:"
         for mode in OffensiveMode:
@@ -150,13 +223,78 @@ class DefenseMiniGame(BaseScript):
         defensive_text = "Defense Mode:"
         for mode in DefensiveMode:
             defensive_text += f"\n{mode.name} {'<--' if self.defensive_mode == mode else ''}"
+        custom_modes_text = "Custom Modes:"
+        # for mode in CustomMode:
+        #     custom_modes_text += f"\n{mode.name} {'<--' if self.custom_mode == mode else ''}"
         self.game_interface.renderer.begin_rendering()
-        self.game_interface.renderer.draw_polyline_3d(self.circle, color)
-        self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
-        self.game_interface.renderer.draw_string_2d(20, 200, 1, 1, offensive_text, color)
-        self.game_interface.renderer.draw_string_2d(200, 200, 1, 1, defensive_text, color)
+        MENU_START_X = 20
+        MENU_START_Y = 400
+        MENU_WIDTH = 500
+        MENU_HEIGHT = 500
+        self.renderer.draw_rect_2d(MENU_START_X, MENU_START_Y, MENU_WIDTH, MENU_HEIGHT, False, self.renderer.black())
+        self.game_interface.renderer.draw_string_2d(MENU_START_X + 20, MENU_START_Y + 20, 1, 1, text, self.renderer.white())
+        self.game_interface.renderer.draw_string_2d(MENU_START_X + 20, MENU_START_Y + 220, 1, 1, offensive_text, self.renderer.white())
+        self.game_interface.renderer.draw_string_2d(MENU_START_X + 200, MENU_START_Y + 220, 1, 1, defensive_text, self.renderer.white())
+        self.game_interface.renderer.draw_string_2d(MENU_START_X + 380, MENU_START_Y + 220, 1, 1, custom_modes_text, self.renderer.white())
         self.game_interface.renderer.end_rendering()
 
+    def custom_sandbox_rendering(self):
+        object_name = ""
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            object_name = "Offensive Car"
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            object_name = "Ball"
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            object_name = "Defensive Car"
+        # text = f"Custom Mode Sandbox: {object_name}\
+        # \n[left/right] move object X\
+        # \n[up/down] move object Y\
+        # \n[w/s] move object Z\
+        # \n[n] next step\
+        # \n[b] previous step\
+        # \n[p/y/r] change pitch/yaw/roll\
+        # "
+        text = f"Custom Mode Sandbox: {object_name}\
+        \n[x] modify x coordinate\
+        \n[y] modify y coordinate\
+        \n[z] modify z coordinate\
+        \n[p] modify pitch\
+        \n[y] modify yaw\
+        \n[r] modify roll\
+        \n[n] next step\
+        \n[b] previous step\
+        \n[+/-] increase/decrease velocity\
+        "
+        CUSTOM_MODE_MENU_START_X = 20
+        CUSTOM_MODE_MENU_START_Y = 800
+        CUSTOM_MODE_MENU_WIDTH = 300
+        CUSTOM_MODE_MENU_HEIGHT = 150
+        self.game_interface.renderer.begin_rendering()
+        self.renderer.draw_rect_2d(CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, CUSTOM_MODE_MENU_WIDTH, CUSTOM_MODE_MENU_HEIGHT, True, self.renderer.black())
+        self.renderer.draw_string_2d(CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, 1, 1, text, self.renderer.white())
+
+        # Also render the velocity of all objects 
+        # Do this by adding the velocity vector to the location vector
+        human_car_start_vector = self.game_state.cars[CarIndex.HUMAN.value].physics.location
+        human_car_start = utils.vector3_to_list(human_car_start_vector)
+        human_car_end_vector = utils.add_vector3(human_car_start_vector, self.game_state.cars[CarIndex.HUMAN.value].physics.velocity)
+        human_car_end = utils.vector3_to_list(human_car_end_vector)
+        self.renderer.draw_line_3d(human_car_start, human_car_end, self.renderer.white())
+
+        ball_start_vector = self.game_state.ball.physics.location
+        ball_start = utils.vector3_to_list(ball_start_vector)
+        ball_end_vector = utils.add_vector3(ball_start_vector, self.game_state.ball.physics.velocity)
+        ball_end = utils.vector3_to_list(ball_end_vector)
+        self.renderer.draw_line_3d(ball_start, ball_end, self.renderer.white())
+
+        bot_car_start_vector = self.game_state.cars[CarIndex.BOT.value].physics.location
+        bot_car_start = utils.vector3_to_list(bot_car_start_vector)
+        bot_car_end_vector = utils.add_vector3(bot_car_start_vector, self.game_state.cars[CarIndex.BOT.value].physics.velocity)
+        bot_car_end = utils.vector3_to_list(bot_car_end_vector)
+        self.renderer.draw_line_3d(bot_car_start, bot_car_end, self.renderer.white())
+
+        self.game_interface.renderer.end_rendering()
+        
     def goal_scored(self, packet):
         # check if goal in last tick
         teamScores = tuple(map(lambda x: x.score, packet.teams))
@@ -166,142 +304,189 @@ class DefenseMiniGame(BaseScript):
             self.scoreDiff_prev = scoreDiff
             return True
         return False
-
-
-    def get_play_yaw(self):
-        rand1 = np.random.random()
-        if rand1 < 1/7:
-            play_yaw = -np.pi * 0.25
-        elif rand1 < 2/7:
-            play_yaw = -np.pi * 0.375
-        elif rand1 < 5/7:
-            play_yaw = -np.pi * 0.5
-        elif rand1 < 6/7:
-            play_yaw = -np.pi * 0.625
-        elif rand1 < 7/7:
-            play_yaw = -np.pi * 0.75
-        # 50% parallel/mirrored yaw compared to other team
-        if np.random.random() < 0.5:
-            play_yaw_mir = play_yaw-np.pi
-        else:
-            play_yaw_mir = -play_yaw
-        return play_yaw, play_yaw_mir
-        
-
     
+    def menu_toggle(self):
+        if self.game_phase == Phase.MENU:
+            self.game_phase = Phase.PAUSED
+        else:
+            self.game_phase = Phase.MENU
 
-    def random_between(self, min_value, max_value):
-        return min_value + np.random.random() * (max_value - min_value)
+    def down_handler(self):
+        if self.custom_updown_selection == CustomUpDownSelection.Y:
+            self.decrease_object_y()
+        elif self.custom_updown_selection == CustomUpDownSelection.Z:
+            self.decrease_object_z()
+        elif self.custom_updown_selection == CustomUpDownSelection.PITCH:
+            self.modify_pitch(-0.1)
 
-    def setup_std_kickoff(self, packet):
-        car_states = {}
-        rand1 = np.random.random()
-        for p in range(packet.num_cars):
-            car = packet.game_cars[p]
-            if car.team == 0:
-                if rand1 < 1/5:
-                    pos = Vector3(-2048, -2560, 17)
-                    yaw = np.pi * 0.25
-                elif rand1 < 2/5:
-                    pos = Vector3(2048, -2560, 17)
-                    yaw = np.pi * 0.75
-                elif rand1 < 3/5:
-                    pos = Vector3(-256.0, -3840, 17)
-                    yaw = np.pi * 0.5
-                elif rand1 < 4/5:
-                    pos = Vector3(256.0, -3840, 17)
-                    yaw = np.pi * 0.5
-                elif rand1 < 5/5:
-                    pos = Vector3(0.0, -4608, 17)
-                    yaw = np.pi * 0.5
-                car_state = CarState(boost_amount=34, physics=Physics(location=pos, rotation=Rotator(yaw=yaw, pitch=0, roll=0), velocity=Vector3(0, 0, 0),
-                        angular_velocity=Vector3(0, 0, 0)))
-                car_states[p] = car_state
-            elif car.team == 1:
-                if rand1 < 1/5:
-                    pos = Vector3(2048, 2560, 17)
-                    yaw = np.pi * -0.75
-                elif rand1 < 2/5:
-                    pos = Vector3(-2048, 2560, 17)
-                    yaw = np.pi * -0.25
-                elif rand1 < 3/5:
-                    pos = Vector3(256.0, 3840, 17)
-                    yaw = np.pi * -0.5
-                elif rand1 < 4/5:
-                    pos = Vector3(-256.0, 3840, 17)
-                    yaw = np.pi * -0.5
-                elif rand1 < 5/5:
-                    pos = Vector3(0.0, 4608, 17)
-                    yaw = np.pi * -0.5
-                car_state = CarState(boost_amount=34, physics=Physics(location=pos, rotation=Rotator(yaw=yaw, pitch=0, roll=0), velocity=Vector3(0, 0, 0),
-                        angular_velocity=Vector3(0, 0, 0)))
-                car_states[p] = car_state
-        if self.horz_ball_var == 'Off':
-            ball_vel_x = ball_vel_y = 0
-        elif self.horz_ball_var == 'On':
-            ball_vel_x = (np.random.random()*2-1)*500
-            ball_vel_y = (np.random.random()*2-1)*300
-        if self.vert_ball_var == 'Off':
-            ball_vel_z = -1
-            ball_pos_z = 93
-        elif self.vert_ball_var == 'On':
-            ball_vel_z = np.random.random()*360-460
-            ball_pos_z = np.random.random()*200+500
-        self.paused_car_states = car_states
-        ball_state = BallState(Physics(location=Vector3(0, 0, ball_pos_z), velocity=Vector3(ball_vel_x,ball_vel_y,ball_vel_z)))
-        self.game_state = GameState(ball=ball_state, cars=car_states)
+    def up_handler(self):
+        if self.custom_updown_selection == CustomUpDownSelection.Y:
+            self.increase_object_y()
+        elif self.custom_updown_selection == CustomUpDownSelection.Z:
+            self.increase_object_z()
+        elif self.custom_updown_selection == CustomUpDownSelection.PITCH:
+            self.modify_pitch(0.1)
+
+    def left_handler(self):
+        if self.custom_leftright_selection == CustomLeftRightSelection.X:
+            self.decrease_object_x()
+        elif self.custom_leftright_selection == CustomLeftRightSelection.YAW:
+            self.modify_yaw(-0.1)
+        elif self.custom_leftright_selection == CustomLeftRightSelection.ROLL:
+            self.modify_roll(-0.1)
+
+    def right_handler(self):
+        if self.custom_leftright_selection == CustomLeftRightSelection.X:
+            self.increase_object_x()
+        elif self.custom_leftright_selection == CustomLeftRightSelection.YAW:
+            self.modify_yaw(0.1)
+        elif self.custom_leftright_selection == CustomLeftRightSelection.ROLL:
+            self.modify_roll(0.1)
+
+
+    def create_custom_mode(self):
+        self.game_phase = Phase.CUSTOM_OFFENSE
+
+    def modify_object_x(self, x):
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            self.game_state.cars[CarIndex.HUMAN.value].physics.location.x += x
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            self.game_state.ball.physics.location.x += x
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            self.game_state.cars[CarIndex.BOT.value].physics.location.x += x
+        else:
+            pass
         self.set_game_state(self.game_state)
-        self.prev_time = self.cur_time
-        self.game_phase = -1
+
+    def decrease_object_x(self):
+        self.modify_object_x(-100)
+
+    def increase_object_x(self):
+        self.modify_object_x(100)
+
+    def modify_object_y(self, y):
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            self.game_state.cars[CarIndex.HUMAN.value].physics.location.y += y
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            self.game_state.ball.physics.location.y += y
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            self.game_state.cars[CarIndex.BOT.value].physics.location.y += y
+        else:
+            pass
+        self.set_game_state(self.game_state)
+
+    def decrease_object_y(self):
+        self.modify_object_y(-100)
+    
+    def increase_object_y(self):
+        self.modify_object_y(100)
+
+    def modify_object_z(self, z):
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            self.game_state.cars[CarIndex.HUMAN.value].physics.location.z += z
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            self.game_state.ball.physics.location.z += z
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            self.game_state.cars[CarIndex.BOT.value].physics.location.z += z    
+        else:
+            pass
+        self.set_game_state(self.game_state)
+    
+    def decrease_object_z(self):
+        self.modify_object_z(-100)
+
+    def increase_object_z(self):
+        self.modify_object_z(100)
+
+    def increase_velocity(self):
+        self.modify_velocity(100)
+
+    def decrease_velocity(self):
+        self.modify_velocity(-100)
+
+    def next_custom_step(self):
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            self.game_phase = Phase.CUSTOM_BALL
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            self.game_phase = Phase.CUSTOM_DEFENSE
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            scenario = Scenario.FromGameState(self.game_state)
+            self.scenario_history.append(scenario)
+            self.freeze_scenario_index = len(self.scenario_history) - 1
+            self.game_phase = Phase.MENU
+    
+    def prev_custom_step(self):
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            self.game_phase = Phase.MENU
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            self.game_phase = Phase.CUSTOM_OFFENSE
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            self.game_phase = Phase.CUSTOM_BALL
 
 
-    def save_gamestate(self, packet, b_has_flip, o_has_flip):
-        blue_car = packet.game_cars[0]
-        orange_car = packet.game_cars[1]
-        ball = packet.game_ball
-        cur_state = np.zeros(37)
-        cur_state[0] = blue_car.physics.location.x
-        cur_state[1] = blue_car.physics.location.y
-        cur_state[2] = blue_car.physics.location.z
-        cur_state[3] = blue_car.physics.rotation.pitch
-        cur_state[4] = blue_car.physics.rotation.yaw
-        cur_state[5] = blue_car.physics.rotation.roll
-        cur_state[6] = blue_car.physics.velocity.x
-        cur_state[7] = blue_car.physics.velocity.y
-        cur_state[8] = blue_car.physics.velocity.z
-        cur_state[9] = blue_car.physics.angular_velocity.x
-        cur_state[10] = blue_car.physics.angular_velocity.y
-        cur_state[11] = blue_car.physics.angular_velocity.z
-        cur_state[12] = blue_car.boost
-        cur_state[13] = b_has_flip
-        cur_state[14] = orange_car.physics.location.x
-        cur_state[15] = orange_car.physics.location.y
-        cur_state[16] = orange_car.physics.location.z
-        cur_state[17] = orange_car.physics.rotation.pitch
-        cur_state[18] = orange_car.physics.rotation.yaw
-        cur_state[19] = orange_car.physics.rotation.roll
-        cur_state[20] = orange_car.physics.velocity.x
-        cur_state[21] = orange_car.physics.velocity.y
-        cur_state[22] = orange_car.physics.velocity.z
-        cur_state[23] = orange_car.physics.angular_velocity.x
-        cur_state[24] = orange_car.physics.angular_velocity.y
-        cur_state[25] = orange_car.physics.angular_velocity.z
-        cur_state[26] = orange_car.boost
-        cur_state[27] = o_has_flip
-        cur_state[28] = ball.physics.location.x
-        cur_state[29] = ball.physics.location.y
-        cur_state[30] = ball.physics.location.z
-        cur_state[31] = ball.physics.velocity.x
-        cur_state[32] = ball.physics.velocity.y
-        cur_state[33] = ball.physics.velocity.z
-        cur_state[34] = ball.physics.angular_velocity.x
-        cur_state[35] = ball.physics.angular_velocity.y
-        cur_state[36] = ball.physics.angular_velocity.z
-        return np.expand_dims(cur_state, axis=0)
+    def custom_select_x(self):
+        self.custom_leftright_selection = CustomLeftRightSelection.X
+
+    def custom_select_yaw(self):
+        self.custom_leftright_selection = CustomLeftRightSelection.YAW
+
+    def custom_select_roll(self):
+        self.custom_leftright_selection = CustomLeftRightSelection.ROLL
+
+    def custom_select_y(self):
+        self.custom_updown_selection = CustomUpDownSelection.Y
+
+    def custom_select_z(self):
+        self.custom_updown_selection = CustomUpDownSelection.Z
+
+    def custom_select_pitch(self):
+        self.custom_updown_selection = CustomUpDownSelection.PITCH
+        
+        
+    
+    def modify_pitch(self, pitch):
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            self.game_state.cars[CarIndex.HUMAN.value].physics.rotation.pitch += pitch
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
+            yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
+            pitch = np.arctan2(self.game_state.ball.physics.velocity.z, np.sqrt(self.game_state.ball.physics.velocity.x**2 + self.game_state.ball.physics.velocity.y**2))
+
+            # Increase pitch by 0.1
+            pitch += 0.1
+
+            # Convert back to velocity components
+            self.game_state.ball.physics.velocity = utils.get_velocity_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
+
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            self.game_state.cars[CarIndex.BOT.value].physics.rotation.pitch += 0.1
+
+        self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
+        self.set_game_state(self.game_state)
+
+    def modify_yaw(self, yaw):
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            self.game_state.cars[CarIndex.HUMAN.value].physics.rotation.yaw += yaw
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            return
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            self.game_state.cars[CarIndex.BOT.value].physics.rotation.yaw += yaw
+
+        self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
+        self.set_game_state(self.game_state)
+
+    def modify_roll(self, roll):
+        if self.game_phase == Phase.CUSTOM_OFFENSE:
+            self.game_state.cars[CarIndex.HUMAN.value].physics.rotation.roll += roll
+        elif self.game_phase == Phase.CUSTOM_BALL:
+            return
+        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+            self.game_state.cars[CarIndex.BOT.value].physics.rotation.roll += roll
+        self.set_game_state(self.game_state)
 
     def clear_score(self):
-        # Set the game state to have 0 score for both teams
-        # Nevermind I don't actually know how to do this
+        # This isn't really possible per Discord, no-op for now
+        # Will be able to relaunch game in rlbot v5
         pass
 
     def mirror_toggle(self):
@@ -309,42 +494,85 @@ class DefenseMiniGame(BaseScript):
             self.mirrored = False
         else:
             self.mirrored = True
-        self.game_phase = Phase.SETUP
+        
+        if self.game_phase != Phase.MENU:
+            self.game_phase = Phase.SETUP
+        else:
+            self.set_next_game_state()
 
     def cycle_offensive_mode(self):
+        if self.game_phase in CUSTOM_MODES:
+            return
+        
         # Go to the next mode in the enum
         mode_int = OffensiveMode(self.offensive_mode).value
         if mode_int == len(OffensiveMode) - 1:
             self.offensive_mode = OffensiveMode(0)
         else:
             self.offensive_mode = OffensiveMode(mode_int + 1)
-        self.game_phase = Phase.SETUP
+
+        if self.game_phase != Phase.MENU:
+            self.game_phase = Phase.SETUP
+        else:
+            self.set_next_game_state()
 
     def cycle_defensive_mode(self):
+        if self.game_phase in CUSTOM_MODES:
+            return
+        
         # Go to the next mode in the enum
         mode_int = DefensiveMode(self.defensive_mode).value
         if mode_int == len(DefensiveMode) - 1:
             self.defensive_mode = DefensiveMode(0)
         else:
             self.defensive_mode = DefensiveMode(mode_int + 1)
-        self.game_phase = Phase.SETUP
+
+        if self.game_phase != Phase.MENU:
+            self.game_phase = Phase.SETUP
+        else:
+            self.set_next_game_state()
 
     def decrease_timeout(self):
+        if self.game_phase in CUSTOM_MODES:
+            return
+        
         self.timeout -= 1
 
     def increase_timeout(self):
+        if self.game_phase in CUSTOM_MODES:
+            return
+        
         self.timeout += 1
         
     def freeze_scenario_toggle(self):
+        if self.game_phase in CUSTOM_MODES:
+            return
+        
         self.freeze_scenario = not self.freeze_scenario
 
     def decrease_freeze_scenario_index(self):
+        if self.game_phase in CUSTOM_MODES:
+            return
+        
         if self.freeze_scenario_index > 0:
             self.freeze_scenario_index -= 1
 
+        if self.game_phase != Phase.MENU:
+            self.game_phase = Phase.SETUP
+        else:
+            self.set_next_game_state()
+
     def increase_freeze_scenario_index(self):   
+        if self.game_phase in CUSTOM_MODES:
+            return
+        
         if self.freeze_scenario_index < len(self.scenario_history) - 1:
             self.freeze_scenario_index += 1
+
+        if self.game_phase != Phase.MENU:
+            self.game_phase = Phase.SETUP
+        else:
+            self.set_next_game_state()
 
 # You can use this __name__ == '__main__' thing to ensure that the script doesn't start accidentally if you
 # merely reference its module from somewhere
