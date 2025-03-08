@@ -41,7 +41,7 @@ def random_between(min_value, max_value):
     return min_value + np.random.random() * (max_value - min_value)
 
 # move to utils?
-def get_velocity_from_yaw(yaw, min_velocity, max_velocity):
+def get_velocity_vector_from_yaw(yaw, min_velocity, max_velocity):
     # yaw is in radians, use this to get the ratio of x/y velocity
     # X = cos(yaw) 
     # Y = sin(yaw)
@@ -56,7 +56,7 @@ def get_velocity_from_yaw(yaw, min_velocity, max_velocity):
 # Pitch is radians above/below the x/y plane
 # Roll is irrelevant
 # We want to convert this to a velocity vector
-def get_velocity_from_rotation(rotation, min_velocity, max_velocity):
+def get_velocity_vector_from_rotation(rotation, min_velocity, max_velocity):
     # Get the yaw from the rotation
     yaw = rotation.yaw
     # Get the pitch from the rotation
@@ -67,3 +67,14 @@ def get_velocity_from_rotation(rotation, min_velocity, max_velocity):
     velocity_y = (velocity_factor * np.sin(yaw)) * np.cos(pitch)
     velocity_z = velocity_factor * np.sin(pitch)
     return Vector3(velocity_x, velocity_y, velocity_z)
+
+# Velocity is a 3D vector
+# Want to retain the rotation
+def modify_velocity_3d(car_state):
+    # Get the yaw from the rotation
+    # velocity_vector = get_velocity_vector_from_rotation(car_state.physics.rotation, 1, 1)
+
+    # # Current velocity should be multiples of all the above components    
+    # velocity_factor = car_state.physics.velocity.
+    # return car_state
+    pass

@@ -32,6 +32,7 @@ class CustomUpDownSelection(Enum):
     Y = 1
     Z = 2
     PITCH = 3
+    VELOCITY = 4
 
 class CustomLeftRightSelection(Enum):
     X = 1
@@ -116,6 +117,7 @@ class DefenseMiniGame(BaseScript):
                 keyboard.add_hotkey('p', self.custom_select_pitch)
                 keyboard.add_hotkey('y', self.custom_select_yaw)
                 keyboard.add_hotkey('r', self.custom_select_roll)
+                keyboard.add_hotkey('v', self.custom_select_velocity)
                 keyboard.add_hotkey('+', self.increase_velocity)
                 keyboard.add_hotkey('-', self.decrease_velocity)
             self.pause_time = 1
@@ -261,18 +263,31 @@ class DefenseMiniGame(BaseScript):
         \n[p] modify pitch\
         \n[y] modify yaw\
         \n[r] modify roll\
+        \n[v] modify velocity\
         \n[n] next step\
         \n[b] previous step\
         \n[+/-] increase/decrease velocity\
         "
         CUSTOM_MODE_MENU_START_X = 20
-        CUSTOM_MODE_MENU_START_Y = 800
+        CUSTOM_MODE_MENU_START_Y = 600
         CUSTOM_MODE_MENU_WIDTH = 300
-        CUSTOM_MODE_MENU_HEIGHT = 150
+        CUSTOM_MODE_MENU_HEIGHT = 250
         self.game_interface.renderer.begin_rendering()
         self.renderer.draw_rect_2d(CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, CUSTOM_MODE_MENU_WIDTH, CUSTOM_MODE_MENU_HEIGHT, True, self.renderer.black())
         self.renderer.draw_string_2d(CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, 1, 1, text, self.renderer.white())
 
+        # Render a small menu to show which controls are active
+        CONTROLS_MENU_START_X = CUSTOM_MODE_MENU_START_X
+        CONTROLS_MENU_START_Y = CUSTOM_MODE_MENU_START_Y + CUSTOM_MODE_MENU_HEIGHT + 100
+        CONTROLS_MENU_WIDTH = 500
+        CONTROLS_MENU_HEIGHT = CUSTOM_MODE_MENU_HEIGHT
+        self.renderer.draw_rect_2d(CONTROLS_MENU_START_X, CONTROLS_MENU_START_Y, CONTROLS_MENU_WIDTH, CONTROLS_MENU_HEIGHT, True, self.renderer.black())
+        controls_text = f"Controls (use arrow keys)\
+        \n           ^ +{self.custom_updown_selection.name}\
+        \n -{self.custom_leftright_selection.name}<            >+{self.custom_leftright_selection.name}\
+        \n           v -{self.custom_updown_selection.name}\
+        "
+        self.renderer.draw_string_2d(CONTROLS_MENU_START_X, CONTROLS_MENU_START_Y, 1, 1, controls_text, self.renderer.white())
         # Also render the velocity of all objects 
         # Do this by adding the velocity vector to the location vector
         human_car_start_vector = self.game_state.cars[CarIndex.HUMAN.value].physics.location
@@ -317,7 +332,7 @@ class DefenseMiniGame(BaseScript):
         elif self.custom_updown_selection == CustomUpDownSelection.Z:
             self.decrease_object_z()
         elif self.custom_updown_selection == CustomUpDownSelection.PITCH:
-            self.modify_pitch(-0.1)
+            self.modify_pitch(0.1)
 
     def up_handler(self):
         if self.custom_updown_selection == CustomUpDownSelection.Y:
@@ -325,7 +340,7 @@ class DefenseMiniGame(BaseScript):
         elif self.custom_updown_selection == CustomUpDownSelection.Z:
             self.increase_object_z()
         elif self.custom_updown_selection == CustomUpDownSelection.PITCH:
-            self.modify_pitch(0.1)
+            self.modify_pitch(-0.1)
 
     def left_handler(self):
         if self.custom_leftright_selection == CustomLeftRightSelection.X:
@@ -441,12 +456,26 @@ class DefenseMiniGame(BaseScript):
 
     def custom_select_pitch(self):
         self.custom_updown_selection = CustomUpDownSelection.PITCH
+
+    def custom_select_velocity(self):
+        self.custom_updown_selection = CustomUpDownSelection.VELOCITY
         
+    def modify_velocity(self, velocity):
+        # if self.game_phase == Phase.CUSTOM_OFFENSE:
+        #     # Scale the 3D velocity vector by the velocity amount
+        #     self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.modify_velocity_3d(self.game_state.cars[CarIndex.HUMAN.value].physics.velocity, -10)
+        # elif self.game_phase == Phase.CUSTOM_BALL:
+        #     self.game_state.ball.physics.velocity = utils.modify_velocity_3d(self.game_state.ball.physics.velocity, -10)
+        # elif self.game_phase == Phase.CUSTOM_DEFENSE:
+        #     self.game_state.cars[CarIndex.BOT.value].physics.velocity = utils.modify_velocity_3d(self.game_state.cars[CarIndex.BOT.value].physics.velocity, -10)
         
+        # self.set_game_state(self.game_state)
+        pass
     
     def modify_pitch(self, pitch):
         if self.game_phase == Phase.CUSTOM_OFFENSE:
             self.game_state.cars[CarIndex.HUMAN.value].physics.rotation.pitch += pitch
+            self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_vector_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
         elif self.game_phase == Phase.CUSTOM_BALL:
             # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
             yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
@@ -456,23 +485,34 @@ class DefenseMiniGame(BaseScript):
             pitch += 0.1
 
             # Convert back to velocity components
-            self.game_state.ball.physics.velocity = utils.get_velocity_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
+            self.game_state.ball.physics.velocity = utils.get_velocity_vector_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
 
         elif self.game_phase == Phase.CUSTOM_DEFENSE:
             self.game_state.cars[CarIndex.BOT.value].physics.rotation.pitch += 0.1
+            self.game_state.cars[CarIndex.BOT.value].physics.velocity = utils.get_velocity_vector_from_rotation(self.game_state.cars[CarIndex.BOT.value].physics.rotation, 1000, 2000)
 
-        self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
         self.set_game_state(self.game_state)
 
     def modify_yaw(self, yaw):
         if self.game_phase == Phase.CUSTOM_OFFENSE:
             self.game_state.cars[CarIndex.HUMAN.value].physics.rotation.yaw += yaw
+            self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_vector_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
         elif self.game_phase == Phase.CUSTOM_BALL:
-            return
+            # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
+            yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
+            pitch = np.arctan2(self.game_state.ball.physics.velocity.z, np.sqrt(self.game_state.ball.physics.velocity.x**2 + self.game_state.ball.physics.velocity.y**2))
+
+            # Increase yaw by 0.1
+            yaw += 0.1
+
+            # Convert back to velocity components
+            self.game_state.ball.physics.velocity = utils.get_velocity_vector_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
+            
         elif self.game_phase == Phase.CUSTOM_DEFENSE:
             self.game_state.cars[CarIndex.BOT.value].physics.rotation.yaw += yaw
+            self.game_state.cars[CarIndex.BOT.value].physics.velocity = utils.get_velocity_vector_from_rotation(self.game_state.cars[CarIndex.BOT.value].physics.rotation, 1000, 2000)
 
-        self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
+        
         self.set_game_state(self.game_state)
 
     def modify_roll(self, roll):
