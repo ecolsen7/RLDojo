@@ -427,12 +427,12 @@ class Scenario:
         # Ball should be ahead of offensive car, flying toward back wall
         ball_x_location = offensive_car_x
         ball_y_location = offensive_car_y + 1000
-        ball_z_location = 93 + utils.random_between(1000, 2000)
+        ball_z_location = 93 + utils.random_between(1000, 1600)
         ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
 
         # X should be opposite direction of starting position
         ball_velocity_x = utils.random_between(400, 500) * (ball_x_location > 0)
-        ball_velocity_y = utils.random_between(-2000, -3000)
+        ball_velocity_y = utils.random_between(-3000, -2000)
         ball_velocity_z = utils.random_between(0, 300)
         ball_velocity = Vector3(ball_velocity_x, ball_velocity_y, ball_velocity_z)
 
