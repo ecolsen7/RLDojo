@@ -50,6 +50,8 @@ class DefenseMiniGame(BaseScript):
         self.defensive_mode = DefensiveMode.NEAR_SHADOW
         self.custom_updown_selection = CustomUpDownSelection.Y
         self.custom_leftright_selection = CustomLeftRightSelection.X
+        self.human_score = 0
+        self.bot_score = 0
         self.scenario_history = []
         self.freeze_scenario = False
         self.freeze_scenario_index = 0
@@ -101,8 +103,6 @@ class DefenseMiniGame(BaseScript):
                 keyboard.add_hotkey('f', self.freeze_scenario_toggle)
                 # keyboard.add_hotkey('z', self.decrease_freeze_scenario_index)
                 # keyboard.add_hotkey('x', self.increase_freeze_scenario_index)
-                keyboard.add_hotkey('i', self.decrease_timeout)
-                keyboard.add_hotkey('u', self.increase_timeout)
                 keyboard.add_hotkey('c', self.create_custom_mode)
                 keyboard.add_hotkey('left', self.left_handler)
                 keyboard.add_hotkey('right', self.right_handler)
@@ -152,6 +152,10 @@ class DefenseMiniGame(BaseScript):
                     if self.disable_goal_reset == True:
                         if self.goal_scored(packet):
                             self.game_phase = Phase.SETUP
+                            if self.mirrored:
+                                self.human_score += 1
+                            else:
+                                self.bot_score += 1
                     if packet.game_info.is_kickoff_pause:
                         self.game_phase = Phase.SETUP
 
@@ -160,6 +164,10 @@ class DefenseMiniGame(BaseScript):
                         if packet.game_ball.physics.location.z < 100:
                             # Add a goal to the defensive team
                             self.score_for_team(1 if self.mirrored else 0)
+                            if self.mirrored:
+                                self.bot_score += 1
+                            else:
+                                self.human_score += 1
                             self.game_phase = Phase.SCORED
                             self.scored_time = self.cur_time
                 
@@ -200,18 +208,19 @@ class DefenseMiniGame(BaseScript):
 
     def do_rendering(self):
         color = self.renderer.yellow()
-        color2 = self.renderer.lime()
+        color2 = self.renderer.black()
         text = f"Welcome to the HumanGym. Press 'm' to enter menu"
+        scores = f"Human: {self.human_score} Bot: {self.bot_score}"
         self.game_interface.renderer.begin_rendering()
-        self.game_interface.renderer.draw_polyline_3d(self.circle, color)
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
+        self.game_interface.renderer.draw_string_2d(400, 100, 1, 1, scores, color2)
         self.game_interface.renderer.end_rendering()
 
     def menu_rendering(self):
         text = f"Welcome to the HumanGym! Press [m] to exit menu\r\n\
         \n[0] reset score\
         \n[1] toggle human on offense: {self.mirrored}\
-        \n[d/i] decrease/increase timeout seconds: {self.timeout}\
+        \n[down/up] decrease/increase timeout seconds: {self.timeout}\
         \n[f] freeze scenario: {self.freeze_scenario}\
         \n[z/x] cycle through scenarios {self.freeze_scenario_index}\
         \n[o] cycle offensive mode\
@@ -246,14 +255,6 @@ class DefenseMiniGame(BaseScript):
             object_name = "Ball"
         elif self.game_phase == Phase.CUSTOM_DEFENSE:
             object_name = "Defensive Car"
-        # text = f"Custom Mode Sandbox: {object_name}\
-        # \n[left/right] move object X\
-        # \n[up/down] move object Y\
-        # \n[w/s] move object Z\
-        # \n[n] next step\
-        # \n[b] previous step\
-        # \n[p/y/r] change pitch/yaw/roll\
-        # "
         text = f"Custom Mode Sandbox: {object_name}\
         \n[x] modify x coordinate\
         \n[y] modify y coordinate\
@@ -266,13 +267,25 @@ class DefenseMiniGame(BaseScript):
         \n[+/-] increase/decrease velocity\
         "
         CUSTOM_MODE_MENU_START_X = 20
-        CUSTOM_MODE_MENU_START_Y = 800
+        CUSTOM_MODE_MENU_START_Y = 600
         CUSTOM_MODE_MENU_WIDTH = 300
-        CUSTOM_MODE_MENU_HEIGHT = 150
+        CUSTOM_MODE_MENU_HEIGHT = 250
         self.game_interface.renderer.begin_rendering()
         self.renderer.draw_rect_2d(CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, CUSTOM_MODE_MENU_WIDTH, CUSTOM_MODE_MENU_HEIGHT, True, self.renderer.black())
         self.renderer.draw_string_2d(CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, 1, 1, text, self.renderer.white())
 
+        # Render a small menu to show which controls are active
+        CONTROLS_MENU_START_X = CUSTOM_MODE_MENU_START_X
+        CONTROLS_MENU_START_Y = CUSTOM_MODE_MENU_START_Y + CUSTOM_MODE_MENU_HEIGHT + 100
+        CONTROLS_MENU_WIDTH = 500
+        CONTROLS_MENU_HEIGHT = CUSTOM_MODE_MENU_HEIGHT
+        self.renderer.draw_rect_2d(CONTROLS_MENU_START_X, CONTROLS_MENU_START_Y, CONTROLS_MENU_WIDTH, CONTROLS_MENU_HEIGHT, True, self.renderer.black())
+        controls_text = f"Controls (use arrow keys)\
+        \n           ^ +{self.custom_updown_selection.name}\
+        \n -{self.custom_leftright_selection.name}<            >+{self.custom_leftright_selection.name}\
+        \n           v -{self.custom_updown_selection.name}\
+        "
+        self.renderer.draw_string_2d(CONTROLS_MENU_START_X, CONTROLS_MENU_START_Y, 1, 1, controls_text, self.renderer.white())
         # Also render the velocity of all objects 
         # Do this by adding the velocity vector to the location vector
         human_car_start_vector = self.game_state.cars[CarIndex.HUMAN.value].physics.location
@@ -312,20 +325,26 @@ class DefenseMiniGame(BaseScript):
             self.game_phase = Phase.MENU
 
     def down_handler(self):
-        if self.custom_updown_selection == CustomUpDownSelection.Y:
-            self.decrease_object_y()
-        elif self.custom_updown_selection == CustomUpDownSelection.Z:
-            self.decrease_object_z()
-        elif self.custom_updown_selection == CustomUpDownSelection.PITCH:
-            self.modify_pitch(-0.1)
+        if self.game_phase in CUSTOM_MODES:
+            if self.custom_updown_selection == CustomUpDownSelection.Y:
+                self.decrease_object_y()
+            elif self.custom_updown_selection == CustomUpDownSelection.Z:
+                self.decrease_object_z()
+            elif self.custom_updown_selection == CustomUpDownSelection.PITCH:
+                self.modify_pitch(0.1)
+        else:
+            self.decrease_timeout()
 
     def up_handler(self):
-        if self.custom_updown_selection == CustomUpDownSelection.Y:
-            self.increase_object_y()
-        elif self.custom_updown_selection == CustomUpDownSelection.Z:
-            self.increase_object_z()
-        elif self.custom_updown_selection == CustomUpDownSelection.PITCH:
-            self.modify_pitch(0.1)
+        if self.game_phase in CUSTOM_MODES:
+            if self.custom_updown_selection == CustomUpDownSelection.Y:
+                self.increase_object_y()
+            elif self.custom_updown_selection == CustomUpDownSelection.Z:
+                self.increase_object_z()
+            elif self.custom_updown_selection == CustomUpDownSelection.PITCH:
+                self.modify_pitch(-0.1)
+        else:
+            self.increase_timeout()
 
     def left_handler(self):
         if self.custom_leftright_selection == CustomLeftRightSelection.X:
@@ -447,6 +466,7 @@ class DefenseMiniGame(BaseScript):
     def modify_pitch(self, pitch):
         if self.game_phase == Phase.CUSTOM_OFFENSE:
             self.game_state.cars[CarIndex.HUMAN.value].physics.rotation.pitch += pitch
+            self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
         elif self.game_phase == Phase.CUSTOM_BALL:
             # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
             yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
@@ -460,19 +480,30 @@ class DefenseMiniGame(BaseScript):
 
         elif self.game_phase == Phase.CUSTOM_DEFENSE:
             self.game_state.cars[CarIndex.BOT.value].physics.rotation.pitch += 0.1
+            self.game_state.cars[CarIndex.BOT.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.BOT.value].physics.rotation, 1000, 2000)
 
-        self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
         self.set_game_state(self.game_state)
 
     def modify_yaw(self, yaw):
         if self.game_phase == Phase.CUSTOM_OFFENSE:
             self.game_state.cars[CarIndex.HUMAN.value].physics.rotation.yaw += yaw
+            self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
         elif self.game_phase == Phase.CUSTOM_BALL:
-            return
+            # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
+            yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
+            pitch = np.arctan2(self.game_state.ball.physics.velocity.z, np.sqrt(self.game_state.ball.physics.velocity.x**2 + self.game_state.ball.physics.velocity.y**2))
+
+            # Increase yaw by 0.1
+            yaw += 0.1
+
+            # Convert back to velocity components
+            self.game_state.ball.physics.velocity = utils.get_velocity_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
+            
         elif self.game_phase == Phase.CUSTOM_DEFENSE:
             self.game_state.cars[CarIndex.BOT.value].physics.rotation.yaw += yaw
+            self.game_state.cars[CarIndex.BOT.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.BOT.value].physics.rotation, 1000, 2000)
 
-        self.game_state.cars[CarIndex.HUMAN.value].physics.velocity = utils.get_velocity_from_rotation(self.game_state.cars[CarIndex.HUMAN.value].physics.rotation, 1000, 2000)
+        
         self.set_game_state(self.game_state)
 
     def modify_roll(self, roll):

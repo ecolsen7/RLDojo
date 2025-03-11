@@ -8,11 +8,12 @@ class OffensiveMode(Enum):
     POSSESSION = 0
     BREAKOUT = 1
     PASS = 2
-    CARRY = 3
-    CORNER = 4
-    SIDEWALL = 5
-    LOB_ON_GOAL = 6
-    BACKWALL_BOUNCE = 7
+    BACKPASS = 3
+    CARRY = 4
+    CORNER = 5
+    SIDEWALL = 6
+    LOB_ON_GOAL = 7
+    BACKWALL_BOUNCE = 8
 
 class DefensiveMode(Enum):
     NEAR_SHADOW = 0
@@ -46,6 +47,8 @@ class Scenario:
                 self.__setup_possession_offense(utils.random_between(2000, 3000))
             case OffensiveMode.PASS:
                 self.__setup_pass_offense()
+            case OffensiveMode.BACKPASS:
+                self.__setup_backpass_offense()
             case OffensiveMode.CARRY:
                 self.__setup_carry_offense()
             case OffensiveMode.CORNER:
@@ -229,7 +232,7 @@ class Scenario:
 
         plt.show()
 
-    def __setup_possession_offense(self, distance_from_net):
+    def __setup_possession_offense(self, y_location):
         self.play_yaw, play_yaw_mir = utils.get_play_yaw()
 
         # Add a small random angle to the yaw of each car
@@ -238,7 +241,7 @@ class Scenario:
         ball_velocity = utils.get_velocity_from_yaw(self.play_yaw, min_velocity=800, max_velocity=1200)
 
         offensive_x_location = utils.random_between(-2000, 2000)
-        offensive_y_location = distance_from_net
+        offensive_y_location = y_location
         offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
 
         # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
@@ -253,6 +256,32 @@ class Scenario:
                         angular_velocity=Vector3(0, 0, 0)))
         self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
 
+    def __setup_backpass_offense(self):
+        # Mostly the same as breakout, but ball is heading toward the offensive car
+        self.__setup_possession_offense(y_location=utils.random_between(2000, 3000))
+
+        # Ball should be ~600 units "in front" of offensive car, with 200 variance in either direction
+        ball_offset = 3000
+        ball_x_location = self.offensive_car_state.physics.location.x + (ball_offset * np.cos(self.offensive_car_state.physics.rotation.yaw)) + utils.random_between(-100, 100)
+        ball_y_location = self.offensive_car_state.physics.location.y + (ball_offset * np.sin(self.offensive_car_state.physics.rotation.yaw)) + utils.random_between(-100, 100)
+
+        ball_z_location = 93 + utils.random_between(0, 200)
+        ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
+
+        # Ball should be heading in front of the offensive car
+        # calculate 1500 total units in the direction the offensive car is facing
+        x_component = 0 * np.cos(self.offensive_car_state.physics.rotation.yaw)
+        y_component = 0 * np.sin(self.offensive_car_state.physics.rotation.yaw)
+        ball_target_x_location = self.offensive_car_state.physics.location.x + x_component
+        ball_target_y_location = self.offensive_car_state.physics.location.y + y_component
+        delta_x = ball_target_x_location - ball_x_location
+        delta_y = ball_target_y_location - ball_y_location
+        velocity_magnitude = utils.random_between(0.4, 0.5)
+
+        ball_velocity = Vector3(delta_x*velocity_magnitude, delta_y*velocity_magnitude, utils.random_between(-300, 300))
+
+        self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
+
     def __setup_carry_offense(self):
        # Mostly same as possession, but ball starts on top of the car
        self.play_yaw, play_yaw_mir = utils.get_play_yaw()
@@ -265,7 +294,7 @@ class Scenario:
        offensive_y_location = utils.random_between(-2500, 2500)
        offensive_car_position = Vector3(offensive_x_location, offensive_y_location, 17)
 
-       ball_position = Vector3(offensive_x_location, offensive_y_location, 120)
+       ball_position = Vector3(offensive_x_location, offensive_y_location, 150)
 
        self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
