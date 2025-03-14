@@ -10,11 +10,10 @@ class Phase(Enum):
     PAUSED = -1
     SETUP = 0
     ACTIVE = 1
-    SCORED = 2
-    MENU = 3
-    CUSTOM_OFFENSE = 4
-    CUSTOM_BALL = 5
-    CUSTOM_DEFENSE = 6
+    MENU = 2
+    CUSTOM_OFFENSE = 3
+    CUSTOM_BALL = 4
+    CUSTOM_DEFENSE = 5
 
 CUSTOM_MODES = [
     Phase.CUSTOM_OFFENSE,
@@ -58,6 +57,8 @@ class DefenseMiniGame(BaseScript):
         self.timeout = 10.0
         self.mirrored = False
         self.scoreDiff_prev = 0
+        self.score_human_prev = 0
+        self.score_bot_prev = 0
         self.omusDefeat_prev = 0
         self.prev_ticks = 0
         self.ticks = 0
@@ -101,8 +102,6 @@ class DefenseMiniGame(BaseScript):
                 keyboard.add_hotkey('o', self.cycle_offensive_mode)
                 keyboard.add_hotkey('d', self.cycle_defensive_mode)
                 keyboard.add_hotkey('f', self.freeze_scenario_toggle)
-                # keyboard.add_hotkey('z', self.decrease_freeze_scenario_index)
-                # keyboard.add_hotkey('x', self.increase_freeze_scenario_index)
                 keyboard.add_hotkey('c', self.create_custom_mode)
                 keyboard.add_hotkey('left', self.left_handler)
                 keyboard.add_hotkey('right', self.right_handler)
@@ -125,9 +124,6 @@ class DefenseMiniGame(BaseScript):
                 self.do_rendering()
 
             match self.game_phase:
-                case Phase.SCORED:
-                    self.game_phase = Phase.SETUP
-
                 # This is where we set up the scenario and set the game state
                 case Phase.SETUP:
                     self.set_next_game_state()
@@ -151,11 +147,15 @@ class DefenseMiniGame(BaseScript):
                 case Phase.ACTIVE:
                     if self.disable_goal_reset == True:
                         if self.goal_scored(packet):
-                            self.game_phase = Phase.SETUP
-                            if self.mirrored:
+                            # Add goal to whichever team scored
+                            team_scored = self.get_team_scored(packet)
+                            if team_scored == CarIndex.HUMAN.value:
                                 self.human_score += 1
                             else:
                                 self.bot_score += 1
+                            self.game_phase = Phase.SETUP
+                            continue
+                        
                     if packet.game_info.is_kickoff_pause:
                         self.game_phase = Phase.SETUP
 
@@ -163,12 +163,12 @@ class DefenseMiniGame(BaseScript):
                     if (self.cur_time - self.prev_time) > self.timeout:
                         if packet.game_ball.physics.location.z < 100:
                             # Add a goal to the defensive team
-                            self.score_for_team(1 if self.mirrored else 0)
+                            self.score_for_team(CarIndex.BOT.value if self.mirrored else CarIndex.HUMAN.value)
                             if self.mirrored:
                                 self.bot_score += 1
                             else:
                                 self.human_score += 1
-                            self.game_phase = Phase.SCORED
+                            self.game_phase = Phase.SETUP
                             self.scored_time = self.cur_time
                 
                 case Phase.CUSTOM_OFFENSE:
@@ -211,9 +211,11 @@ class DefenseMiniGame(BaseScript):
         color2 = self.renderer.black()
         text = f"Welcome to the HumanGym. Press 'm' to enter menu"
         scores = f"Human: {self.human_score} Bot: {self.bot_score}"
+        total_score = f"Total: {self.human_score + self.bot_score}"
         self.game_interface.renderer.begin_rendering()
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
-        self.game_interface.renderer.draw_string_2d(400, 100, 1, 1, scores, color2)
+        self.game_interface.renderer.draw_string_2d(830, 100, 1, 1, scores, color2)
+        self.game_interface.renderer.draw_string_2d(880, 130, 1, 1, total_score, color2)
         self.game_interface.renderer.end_rendering()
 
     def menu_rendering(self):
@@ -222,7 +224,7 @@ class DefenseMiniGame(BaseScript):
         \n[1] toggle human on offense: {self.mirrored}\
         \n[down/up] decrease/increase timeout seconds: {self.timeout}\
         \n[f] freeze scenario: {self.freeze_scenario}\
-        \n[z/x] cycle through scenarios {self.freeze_scenario_index}\
+        \n[left/right] cycle through scenarios {self.freeze_scenario_index}\
         \n[o] cycle offensive mode\
         \n[d] cycle defensive mode\
         "
@@ -268,8 +270,8 @@ class DefenseMiniGame(BaseScript):
         "
         CUSTOM_MODE_MENU_START_X = 20
         CUSTOM_MODE_MENU_START_Y = 600
-        CUSTOM_MODE_MENU_WIDTH = 300
-        CUSTOM_MODE_MENU_HEIGHT = 250
+        CUSTOM_MODE_MENU_WIDTH = 400
+        CUSTOM_MODE_MENU_HEIGHT = 200
         self.game_interface.renderer.begin_rendering()
         self.renderer.draw_rect_2d(CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, CUSTOM_MODE_MENU_WIDTH, CUSTOM_MODE_MENU_HEIGHT, True, self.renderer.black())
         self.renderer.draw_string_2d(CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, 1, 1, text, self.renderer.white())
@@ -277,8 +279,8 @@ class DefenseMiniGame(BaseScript):
         # Render a small menu to show which controls are active
         CONTROLS_MENU_START_X = CUSTOM_MODE_MENU_START_X
         CONTROLS_MENU_START_Y = CUSTOM_MODE_MENU_START_Y + CUSTOM_MODE_MENU_HEIGHT + 100
-        CONTROLS_MENU_WIDTH = 500
-        CONTROLS_MENU_HEIGHT = CUSTOM_MODE_MENU_HEIGHT
+        CONTROLS_MENU_WIDTH = 350
+        CONTROLS_MENU_HEIGHT = 200
         self.renderer.draw_rect_2d(CONTROLS_MENU_START_X, CONTROLS_MENU_START_Y, CONTROLS_MENU_WIDTH, CONTROLS_MENU_HEIGHT, True, self.renderer.black())
         controls_text = f"Controls (use arrow keys)\
         \n           ^ +{self.custom_updown_selection.name}\
@@ -317,6 +319,17 @@ class DefenseMiniGame(BaseScript):
             self.scoreDiff_prev = scoreDiff
             return True
         return False
+
+    def get_team_scored(self, packet):
+        teamScores = tuple(map(lambda x: x.score, packet.teams))
+        human_score = teamScores[CarIndex.HUMAN.value]
+        bot_score = teamScores[CarIndex.BOT.value]
+        
+        team = CarIndex.HUMAN.value if human_score > self.score_human_prev else CarIndex.BOT.value
+        
+        self.score_human_prev = human_score
+        self.score_bot_prev = bot_score
+        return team
     
     def menu_toggle(self):
         if self.game_phase == Phase.MENU:
@@ -347,20 +360,26 @@ class DefenseMiniGame(BaseScript):
             self.increase_timeout()
 
     def left_handler(self):
-        if self.custom_leftright_selection == CustomLeftRightSelection.X:
-            self.decrease_object_x()
-        elif self.custom_leftright_selection == CustomLeftRightSelection.YAW:
-            self.modify_yaw(-0.1)
-        elif self.custom_leftright_selection == CustomLeftRightSelection.ROLL:
-            self.modify_roll(-0.1)
+        if self.game_phase in CUSTOM_MODES:
+            if self.custom_leftright_selection == CustomLeftRightSelection.X:
+                self.decrease_object_x()
+            elif self.custom_leftright_selection == CustomLeftRightSelection.YAW:
+                self.modify_yaw(-0.1)
+            elif self.custom_leftright_selection == CustomLeftRightSelection.ROLL:
+                self.modify_roll(-0.1)
+        else:
+            self.decrease_freeze_scenario_index()
 
     def right_handler(self):
-        if self.custom_leftright_selection == CustomLeftRightSelection.X:
-            self.increase_object_x()
-        elif self.custom_leftright_selection == CustomLeftRightSelection.YAW:
-            self.modify_yaw(0.1)
-        elif self.custom_leftright_selection == CustomLeftRightSelection.ROLL:
-            self.modify_roll(0.1)
+        if self.game_phase in CUSTOM_MODES:
+            if self.custom_leftright_selection == CustomLeftRightSelection.X:
+                self.increase_object_x()
+            elif self.custom_leftright_selection == CustomLeftRightSelection.YAW:
+                self.modify_yaw(0.1)
+            elif self.custom_leftright_selection == CustomLeftRightSelection.ROLL:
+                self.modify_roll(0.1)
+        else:
+            self.increase_freeze_scenario_index()
 
 
     def create_custom_mode(self):
@@ -516,9 +535,8 @@ class DefenseMiniGame(BaseScript):
         self.set_game_state(self.game_state)
 
     def clear_score(self):
-        # This isn't really possible per Discord, no-op for now
-        # Will be able to relaunch game in rlbot v5
-        pass
+        self.human_score = 0
+        self.bot_score = 0
 
     def mirror_toggle(self):
         if self.mirrored:
