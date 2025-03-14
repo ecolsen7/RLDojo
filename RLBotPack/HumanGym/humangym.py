@@ -598,6 +598,7 @@ class DefenseMiniGame(BaseScript):
     def modify_pitch(self, object_to_modify, pitch):
         if hasattr(object_to_modify.physics, 'rotation'):
             object_to_modify.physics.rotation.pitch += pitch
+            object_to_modify.physics.velocity = utils.get_velocity_from_rotation(object_to_modify.physics.rotation, 1000, 2000)
         else:
             # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
             yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
@@ -614,6 +615,7 @@ class DefenseMiniGame(BaseScript):
     def modify_yaw(self, object_to_modify, yaw):
         if hasattr(object_to_modify.physics, 'rotation'):
             object_to_modify.physics.rotation.yaw += yaw
+            object_to_modify.physics.velocity = utils.get_velocity_from_rotation(object_to_modify.physics.rotation, 1000, 2000)
         else:
             # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
             yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
