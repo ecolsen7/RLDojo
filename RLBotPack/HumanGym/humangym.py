@@ -46,13 +46,13 @@ class DefenseMiniGame(BaseScript):
     the goal it to defend
     '''
     def __init__(self):
-        super().__init__("DefenseMiniGame")
+        super().__init__("HumanGym")
         self.game_phase = Phase.SETUP
         # self.ui = HumanGymUI()
         self.offensive_mode = OffensiveMode.POSSESSION
         self.defensive_mode = DefensiveMode.NEAR_SHADOW
-        self.up_down_selection = CustomUpDownSelection.Y
-        self.left_right_selection = CustomLeftRightSelection.X
+        self.custom_updown_selection = CustomUpDownSelection.Y
+        self.custom_leftright_selection = CustomLeftRightSelection.X
         self.human_score = 0
         self.bot_score = 0
         self.scenario_history = []
@@ -112,6 +112,7 @@ class DefenseMiniGame(BaseScript):
                 keyboard.add_hotkey('p', self.custom_select_pitch)
                 keyboard.add_hotkey('Y', self.custom_select_yaw)
                 keyboard.add_hotkey('r', self.custom_select_roll)
+                keyboard.add_hotkey('v', self.custom_select_velocity)
                 
             self.pause_time = 1
 
@@ -260,9 +261,9 @@ class DefenseMiniGame(BaseScript):
         \n[p] modify pitch\
         \n[y] modify yaw\
         \n[r] modify roll\
+        \n[v] modify velocity\
         \n[n] next step\
         \n[b] previous step\
-        \n[+/-] increase/decrease velocity\
         "
         CUSTOM_MODE_MENU_START_X = 20
         CUSTOM_MODE_MENU_START_Y = 600
@@ -360,7 +361,7 @@ class DefenseMiniGame(BaseScript):
                 case CustomUpDownSelection.PITCH:
                     self.modify_pitch(object_to_modify, 0.1)
                 case CustomUpDownSelection.VELOCITY:
-                    self.modify_velocity(object_to_modify, -100)
+                    self.modify_velocity(object_to_modify, -0.1)
         else:
             self.decrease_timeout()
 
@@ -384,7 +385,7 @@ class DefenseMiniGame(BaseScript):
                 case CustomUpDownSelection.PITCH:
                     self.modify_pitch(object_to_modify, -0.1)
                 case CustomUpDownSelection.VELOCITY:
-                    self.modify_velocity(object_to_modify, 100)
+                    self.modify_velocity(object_to_modify, 0.1)
         else:
             self.increase_timeout()
 
@@ -575,7 +576,9 @@ class DefenseMiniGame(BaseScript):
 
     def custom_select_pitch(self):
         self.custom_updown_selection = CustomUpDownSelection.PITCH
-        
+
+    def custom_select_velocity(self):
+        self.custom_updown_selection = CustomUpDownSelection.VELOCITY
         
     
 
