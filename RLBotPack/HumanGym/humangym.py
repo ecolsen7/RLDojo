@@ -49,6 +49,7 @@ class DefenseMiniGame(BaseScript):
         super().__init__("HumanGym")
         self.game_phase = Phase.SETUP
         # self.ui = HumanGymUI()
+        self.menu_renderer = MenuRenderer(self.game_interface.renderer)
         self.offensive_mode = OffensiveMode.POSSESSION
         self.defensive_mode = DefensiveMode.NEAR_SHADOW
         self.custom_updown_selection = CustomUpDownSelection.Y
@@ -131,8 +132,8 @@ class DefenseMiniGame(BaseScript):
                 # Freeze the game while the menu is open
                 case Phase.MENU:
                     self.set_game_state(self.game_state)
-                    self.menu_rendering()
-
+                    # self.menu_rendering()
+                    self.menu_renderer.render_menu()
                 # A small pause to prep the player and wait for goal scored to expire
                 case Phase.PAUSED:
                     if (self.cur_time - self.prev_time) < self.pause_time or self.goal_scored(packet) or packet.game_info.is_kickoff_pause:
@@ -362,6 +363,7 @@ class DefenseMiniGame(BaseScript):
                     self.modify_pitch(object_to_modify, 0.1)
                 case CustomUpDownSelection.VELOCITY:
                     self.modify_velocity(object_to_modify, -0.1)
+            self.set_game_state(self.game_state)
         else:
             self.decrease_timeout()
 
@@ -386,6 +388,7 @@ class DefenseMiniGame(BaseScript):
                     self.modify_pitch(object_to_modify, -0.1)
                 case CustomUpDownSelection.VELOCITY:
                     self.modify_velocity(object_to_modify, 0.1)
+            self.set_game_state(self.game_state)
         else:
             self.increase_timeout()
 
@@ -408,6 +411,7 @@ class DefenseMiniGame(BaseScript):
                     self.modify_yaw(object_to_modify, -0.1)
                 case CustomLeftRightSelection.ROLL:
                     self.modify_roll(object_to_modify, -0.1)
+            self.set_game_state(self.game_state)
         else:
             self.decrease_freeze_scenario_index()
 
@@ -430,6 +434,7 @@ class DefenseMiniGame(BaseScript):
                     self.modify_yaw(object_to_modify, 0.1)
                 case CustomLeftRightSelection.ROLL:
                     self.modify_roll(object_to_modify, 0.1)
+            self.set_game_state(self.game_state)
         else:
             self.increase_freeze_scenario_index()
 
@@ -580,78 +585,6 @@ class DefenseMiniGame(BaseScript):
     def custom_select_velocity(self):
         self.custom_updown_selection = CustomUpDownSelection.VELOCITY
         
-    
-
-    #######################################
-    ### Custom Sandbox Object Modifiers ###
-    #######################################
-
-    def modify_object_x(self, object_to_modify, x):
-        object_to_modify.physics.location.x += x
-        self.set_game_state(self.game_state)
-
-    def modify_object_y(self, object_to_modify, y):
-        object_to_modify.physics.location.y += y
-        self.set_game_state(self.game_state)
-
-    def modify_object_z(self, object_to_modify, z):
-        object_to_modify.physics.location.z += z
-        self.set_game_state(self.game_state)
-
-    def modify_pitch(self, object_to_modify, pitch):
-        if hasattr(object_to_modify.physics, 'rotation'):
-            object_to_modify.physics.rotation.pitch += pitch
-            object_to_modify.physics.velocity = utils.get_velocity_from_rotation(object_to_modify.physics.rotation, 1000, 2000)
-        else:
-            # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
-            yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
-            pitch = np.arctan2(self.game_state.ball.physics.velocity.z, np.sqrt(self.game_state.ball.physics.velocity.x**2 + self.game_state.ball.physics.velocity.y**2))
-
-            # Increase pitch by 0.1
-            pitch += pitch
-
-            # Convert back to velocity components
-            self.game_state.ball.physics.velocity = utils.get_velocity_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
-        
-        self.set_game_state(self.game_state)
-
-    def modify_yaw(self, object_to_modify, yaw):
-        if hasattr(object_to_modify.physics, 'rotation'):
-            object_to_modify.physics.rotation.yaw += yaw
-            object_to_modify.physics.velocity = utils.get_velocity_from_rotation(object_to_modify.physics.rotation, 1000, 2000)
-        else:
-            # Ball doesn't have rotation, use the velocity components to determine and modify trajectory
-            yaw = np.arctan2(self.game_state.ball.physics.velocity.y, self.game_state.ball.physics.velocity.x)
-            pitch = np.arctan2(self.game_state.ball.physics.velocity.z, np.sqrt(self.game_state.ball.physics.velocity.x**2 + self.game_state.ball.physics.velocity.y**2))
-
-            # Increase yaw by 0.1
-            yaw += yaw
-
-            # Convert back to velocity components
-            self.game_state.ball.physics.velocity = utils.get_velocity_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
-        
-        self.set_game_state(self.game_state)
-
-    def modify_roll(self, object_to_modify, roll):
-        if hasattr(object_to_modify.physics, 'rotation'):
-            object_to_modify.physics.rotation.roll += roll
-        
-        self.set_game_state(self.game_state)
-
-    def modify_velocity(self, object_to_modify, velocity_percentage_delta):
-        # Velocity is a 3-dimensional vector, scale each component by the same percentage
-        x = object_to_modify.physics.velocity.x
-        y = object_to_modify.physics.velocity.y
-        z = object_to_modify.physics.velocity.z
-
-        x += x * velocity_percentage_delta
-        y += y * velocity_percentage_delta
-        z += z * velocity_percentage_delta
-
-        object_to_modify.physics.velocity = Vector3(x, y, z)
-        self.set_game_state(self.game_state)
-
-
 
 # You can use this __name__ == '__main__' thing to ensure that the script doesn't start accidentally if you
 # merely reference its module from somewhere
