@@ -5,6 +5,7 @@ import keyboard
 from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator, GameInfoState
 from scenario import Scenario, OffensiveMode, DefensiveMode
+from menu import MenuRenderer, UIElement
 import utils
 
 class CustomUpDownSelection(Enum):
@@ -93,12 +94,23 @@ class DefenseMiniGame(BaseScript):
                 mutators = match_settings.MutatorSettings()
                 if mutators.RespawnTimeOption() == 3:
                     self.disable_goal_reset = True
+                self.menu_renderer.add_element(UIElement('Reset Score', function=self.clear_score))
+                self.menu_renderer.add_element(UIElement('Toggle Mirror', function=self.mirror_toggle))
+                self.menu_renderer.add_element(UIElement('Freeze Scenario', function=self.freeze_scenario_toggle))
+                self.menu_renderer.add_element(UIElement('Create Custom Mode', function=self.create_custom_mode))
+
+                self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=2)
+                self.preset_mode_menu.add_element(UIElement('Offensive Mode', header=True), column=0)
+                for mode in OffensiveMode:
+                    self.preset_mode_menu.add_element(UIElement(mode.name, function=self.select_offensive_mode, function_args=mode), column=0)
+                self.preset_mode_menu.add_element(UIElement('Defensive Mode', header=True), column=1)
+                for mode in DefensiveMode:
+                    self.preset_mode_menu.add_element(UIElement(mode.name, function=self.select_defensive_mode, function_args=mode), column=1)
+                self.menu_renderer.add_element(UIElement('Select Preset Mode', submenu=self.preset_mode_menu))
                 # initialise reading keyboard for menu selection
                 keyboard.add_hotkey('m', self.menu_toggle)
                 keyboard.add_hotkey('0', self.clear_score)
                 keyboard.add_hotkey('1', self.mirror_toggle)
-                keyboard.add_hotkey('o', self.cycle_offensive_mode)
-                keyboard.add_hotkey('d', self.cycle_defensive_mode)
                 keyboard.add_hotkey('f', self.freeze_scenario_toggle)
                 keyboard.add_hotkey('c', self.create_custom_mode)
                 keyboard.add_hotkey('left', self.left_handler)
@@ -114,6 +126,7 @@ class DefenseMiniGame(BaseScript):
                 keyboard.add_hotkey('Y', self.custom_select_yaw)
                 keyboard.add_hotkey('r', self.custom_select_roll)
                 keyboard.add_hotkey('v', self.custom_select_velocity)
+                keyboard.add_hotkey('enter', self.enter_handler)
                 
             self.pause_time = 1
 
@@ -134,6 +147,7 @@ class DefenseMiniGame(BaseScript):
                     self.set_game_state(self.game_state)
                     # self.menu_rendering()
                     self.menu_renderer.render_menu()
+
                 # A small pause to prep the player and wait for goal scored to expire
                 case Phase.PAUSED:
                     if (self.cur_time - self.prev_time) < self.pause_time or self.goal_scored(packet) or packet.game_info.is_kickoff_pause:
@@ -186,6 +200,7 @@ class DefenseMiniGame(BaseScript):
 
     def set_next_game_state(self):
         if not self.freeze_scenario:
+            print("setting next game state: ", self.offensive_mode, self.defensive_mode)
             scenario = Scenario(self.offensive_mode, self.defensive_mode)
             if self.mirrored:
                 scenario.Mirror()
@@ -214,37 +229,6 @@ class DefenseMiniGame(BaseScript):
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
         self.game_interface.renderer.draw_string_2d(830, 100, 1, 1, scores, color2)
         self.game_interface.renderer.draw_string_2d(880, 130, 1, 1, total_score, color2)
-        self.game_interface.renderer.end_rendering()
-
-    def menu_rendering(self):
-        text = f"Welcome to the HumanGym! Press [m] to exit menu\r\n\
-        \n[0] reset score\
-        \n[1] toggle human on offense: {self.mirrored}\
-        \n[down/up] decrease/increase timeout seconds: {self.timeout}\
-        \n[f] freeze scenario: {self.freeze_scenario}\
-        \n[left/right] cycle through scenarios {self.freeze_scenario_index}\
-        \n[o] cycle offensive mode\
-        \n[d] cycle defensive mode\
-        "
-        offensive_text = "Offense Mode:"
-        for mode in OffensiveMode:
-            offensive_text += f"\n{mode.name} {'<--' if self.offensive_mode == mode else ''}"
-        defensive_text = "Defense Mode:"
-        for mode in DefensiveMode:
-            defensive_text += f"\n{mode.name} {'<--' if self.defensive_mode == mode else ''}"
-        custom_modes_text = "Custom Modes:"
-        # for mode in CustomMode:
-        #     custom_modes_text += f"\n{mode.name} {'<--' if self.custom_mode == mode else ''}"
-        self.game_interface.renderer.begin_rendering()
-        MENU_START_X = 20
-        MENU_START_Y = 400
-        MENU_WIDTH = 500
-        MENU_HEIGHT = 500
-        self.renderer.draw_rect_2d(MENU_START_X, MENU_START_Y, MENU_WIDTH, MENU_HEIGHT, False, self.renderer.black())
-        self.game_interface.renderer.draw_string_2d(MENU_START_X + 20, MENU_START_Y + 20, 1, 1, text, self.renderer.white())
-        self.game_interface.renderer.draw_string_2d(MENU_START_X + 20, MENU_START_Y + 220, 1, 1, offensive_text, self.renderer.white())
-        self.game_interface.renderer.draw_string_2d(MENU_START_X + 200, MENU_START_Y + 220, 1, 1, defensive_text, self.renderer.white())
-        self.game_interface.renderer.draw_string_2d(MENU_START_X + 380, MENU_START_Y + 220, 1, 1, custom_modes_text, self.renderer.white())
         self.game_interface.renderer.end_rendering()
 
     def custom_sandbox_rendering(self):
@@ -365,7 +349,8 @@ class DefenseMiniGame(BaseScript):
                     self.modify_velocity(object_to_modify, -0.1)
             self.set_game_state(self.game_state)
         else:
-            self.decrease_timeout()
+            # self.decrease_timeout()
+            self.menu_renderer.select_next_element()
 
     def up_handler(self):
         if self.game_phase in CUSTOM_MODES:
@@ -390,7 +375,8 @@ class DefenseMiniGame(BaseScript):
                     self.modify_velocity(object_to_modify, 0.1)
             self.set_game_state(self.game_state)
         else:
-            self.increase_timeout()
+            # self.increase_timeout()
+            self.menu_renderer.select_last_element()
 
     def left_handler(self):
         if self.game_phase in CUSTOM_MODES:
@@ -413,7 +399,8 @@ class DefenseMiniGame(BaseScript):
                     self.modify_roll(object_to_modify, -0.1)
             self.set_game_state(self.game_state)
         else:
-            self.decrease_freeze_scenario_index()
+            # self.decrease_freeze_scenario_index()
+            self.menu_renderer.move_to_prev_column()
 
     def right_handler(self):
         if self.game_phase in CUSTOM_MODES:
@@ -436,9 +423,11 @@ class DefenseMiniGame(BaseScript):
                     self.modify_roll(object_to_modify, 0.1)
             self.set_game_state(self.game_state)
         else:
-            self.increase_freeze_scenario_index()
+            # self.increase_freeze_scenario_index()
+            self.menu_renderer.move_to_next_column()
 
-
+    def enter_handler(self):
+        self.menu_renderer.enter_element()
 
 
     ###########################
@@ -460,37 +449,22 @@ class DefenseMiniGame(BaseScript):
         else:
             self.set_next_game_state()
 
-    def cycle_offensive_mode(self):
-        if self.game_phase in CUSTOM_MODES:
-            return
-        
-        # Go to the next mode in the enum
-        mode_int = OffensiveMode(self.offensive_mode).value
-        if mode_int == len(OffensiveMode) - 1:
-            self.offensive_mode = OffensiveMode(0)
-        else:
-            self.offensive_mode = OffensiveMode(mode_int + 1)
-
+    def select_offensive_mode(self, mode):
+        print(f"Selecting offensive mode: {mode}")
+        self.offensive_mode = mode
         if self.game_phase != Phase.MENU:
             self.game_phase = Phase.SETUP
         else:
             self.set_next_game_state()
 
-    def cycle_defensive_mode(self):
-        if self.game_phase in CUSTOM_MODES:
-            return
-        
-        # Go to the next mode in the enum
-        mode_int = DefensiveMode(self.defensive_mode).value
-        if mode_int == len(DefensiveMode) - 1:
-            self.defensive_mode = DefensiveMode(0)
-        else:
-            self.defensive_mode = DefensiveMode(mode_int + 1)
-
+    def select_defensive_mode(self, mode):
+        print(f"Selecting defensive mode: {mode}")
+        self.defensive_mode = mode
         if self.game_phase != Phase.MENU:
             self.game_phase = Phase.SETUP
         else:
             self.set_next_game_state()
+
 
     def decrease_timeout(self):
         if self.game_phase in CUSTOM_MODES:

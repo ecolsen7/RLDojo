@@ -473,7 +473,7 @@ class Scenario:
         '''
 
         # Add a small random angle to the yaw of each car
-        defensive_car_yaw = self.play_yaw + utils.random_between(-0.1*np.pi, 0.1*np.pi)
+        defensive_car_yaw = self.offensive_car_state.physics.rotation.yaw + utils.random_between(-0.1*np.pi, 0.1*np.pi)
 
         # Get the starting velocity from the yaw
         defensive_car_velocity = utils.get_velocity_from_yaw(defensive_car_yaw, min_velocity=800, max_velocity=1200)
