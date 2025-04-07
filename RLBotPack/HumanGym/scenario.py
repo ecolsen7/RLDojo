@@ -21,11 +21,6 @@ class DefensiveMode(Enum):
     NET = 2
     CORNER = 3
 
-SIDE_WALL=4096
-
-# From perspective of default scenario - blue team defending
-BACK_WALL=-5120
-
 class Scenario:
     '''
     Scenario represents all initial states of a game mode
@@ -72,7 +67,7 @@ class Scenario:
                 self.__setup_corner_defense()
 
         if defensive_mode is not None and offensive_mode is not None:
-            self.__sanity_check_objects()
+            utils.sanity_check_objects([self.offensive_car_state, self.defensive_car_state, self.ball_state])
 
     @staticmethod
     def FromGameState(game_state):
@@ -83,7 +78,7 @@ class Scenario:
         scenario.offensive_car_state = CarState(physics=game_state.cars[1].physics)
         scenario.defensive_car_state = CarState(physics=game_state.cars[0].physics)
         scenario.ball_state = BallState(physics=game_state.ball.physics)
-        scenario.__sanity_check_objects()
+        utils.sanity_check_objects([scenario.offensive_car_state, scenario.defensive_car_state, scenario.ball_state])
         return scenario
         
 
@@ -305,11 +300,11 @@ class Scenario:
         # Offensive car starts heading toward the corner
         # This will be ~1000 units from the back wall, ~500 units from the side wall
         # X side should be randomized
-        offensive_x_location = utils.random_between(SIDE_WALL - 500, SIDE_WALL - 1000)
-        offensive_y_location = utils.random_between(BACK_WALL + 1500, BACK_WALL + 2500)
+        offensive_x_location = utils.random_between(utils.SIDE_WALL - 500, utils.SIDE_WALL - 1000)
+        offensive_y_location = utils.random_between(utils.BACK_WALL + 1500, utils.BACK_WALL + 2500)
 
-        offensive_x_target = SIDE_WALL - 2000
-        offensive_y_target = BACK_WALL + 500
+        offensive_x_target = utils.SIDE_WALL - 2000
+        offensive_y_target = utils.BACK_WALL + 500
 
         # Yaw should be facing halfway between the corner boost and back post
         offensive_car_yaw = np.arctan2(offensive_y_target - offensive_y_location, offensive_x_target - offensive_x_location)
@@ -387,7 +382,7 @@ class Scenario:
         self.play_yaw = utils.random_between(5.8, 6.2)
 
         # Offensive car should be 1000 units from the side wall
-        offensive_x_location = SIDE_WALL - utils.random_between(1500, 2500)
+        offensive_x_location = utils.SIDE_WALL - utils.random_between(1500, 2500)
 
         # Sidewall setups shouldn't be too close to the goal
         offensive_y_location = utils.random_between(-1500, 1500)
@@ -514,11 +509,11 @@ class Scenario:
 
         # This will be ~1000 units from the back wall, ~500 units from the side wall
         # X side should be randomized
-        defensive_x_location = utils.random_between(SIDE_WALL - 500, SIDE_WALL - 1000)
-        defensive_y_location = utils.random_between(BACK_WALL + 1500, BACK_WALL + 2500)
+        defensive_x_location = utils.random_between(utils.SIDE_WALL - 500, utils.SIDE_WALL - 1000)
+        defensive_y_location = utils.random_between(utils.BACK_WALL + 1500, utils.BACK_WALL + 2500)
 
-        defensive_x_target = SIDE_WALL - 2000
-        defensive_y_target = BACK_WALL + 500
+        defensive_x_target = utils.SIDE_WALL - 2000
+        defensive_y_target = utils.BACK_WALL + 500
 
         # Yaw should be facing halfway between the corner boost and back post
         defensive_car_yaw = np.arctan2(defensive_y_target - defensive_y_location, defensive_x_target - defensive_x_location)
@@ -534,40 +529,6 @@ class Scenario:
         # Flip X position, velocity, and yaw randomly 50% of the time
         self.__randomly_mirror_defensive_x()
 
-    def __sanity_check_objects(self):
-        '''If any of the objects have been placed outside of the map, move them to the nearest edge of the map'''
-        # Back wall is biased toward the negative end, which makes this math a little fucky
-        for object in [self.offensive_car_state, self.defensive_car_state, self.ball_state]:
-            if object.physics.location.x < -SIDE_WALL:
-                object.physics.location.x = -(SIDE_WALL-100)
-            elif object.physics.location.x > SIDE_WALL:
-                object.physics.location.x = SIDE_WALL-100
-            if object.physics.location.y > -BACK_WALL:
-                # Make an exception if in the goal, which is between -/+893 x
-                if not (object.physics.location.x > -893 and object.physics.location.x < 893):
-                    object.physics.location.y = -(BACK_WALL+100)
-            elif object.physics.location.y < BACK_WALL:
-                # Make an exception if in the goal, which is between -/+893 x
-                if not (object.physics.location.x > -893 and object.physics.location.x < 893):
-                    object.physics.location.y = BACK_WALL+100
-
-            # Also account for corners, which is going to suck
-            # Corners start 1152 units in from the side walls and back walls
-            # That translates to 4096 - 1152 = 2944 in X axis
-            # And 5120 - 1152 = 3968 in Y axis
-            # So if the object is outside of both of those, move it inside
-            if object.physics.location.x > 2944 and object.physics.location.y > 3968:
-                object.physics.location.x = 2944
-                object.physics.location.y = 3968
-            elif object.physics.location.x < -2944 and object.physics.location.y > 3968:
-                object.physics.location.x = -2944
-                object.physics.location.y = 3968
-            elif object.physics.location.x > 2944 and object.physics.location.y < -3968:
-                object.physics.location.x = 2944
-                object.physics.location.y = -3968
-            elif object.physics.location.x < -2944 and object.physics.location.y < -3968:
-                object.physics.location.x = -2944
-                object.physics.location.y = -3968
 
     def __randomly_mirror_offense_x(self):
         if np.random.random() < 0.5:

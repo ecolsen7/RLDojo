@@ -7,6 +7,7 @@ from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics,
 from scenario import Scenario, OffensiveMode, DefensiveMode
 from menu import MenuRenderer, UIElement
 import utils
+import race
 
 class CustomUpDownSelection(Enum):
     Y = 1
@@ -19,8 +20,12 @@ class CustomLeftRightSelection(Enum):
     YAW = 2
     ROLL = 3
 
+class GymMode(Enum):
+    SCENARIO = 1
+    RACE = 2
 
-class Phase(Enum):
+
+class ScenarioPhase(Enum):
     PAUSED = -1
     SETUP = 0
     ACTIVE = 1
@@ -29,10 +34,18 @@ class Phase(Enum):
     CUSTOM_BALL = 4
     CUSTOM_DEFENSE = 5
 
+class RacePhase(Enum):
+    INIT = -1
+    SETUP = 0
+    ACTIVE = 1
+    MENU = 2
+
+
+
 CUSTOM_MODES = [
-    Phase.CUSTOM_OFFENSE,
-    Phase.CUSTOM_BALL,
-    Phase.CUSTOM_DEFENSE
+    ScenarioPhase.CUSTOM_OFFENSE,
+    ScenarioPhase.CUSTOM_BALL,
+    ScenarioPhase.CUSTOM_DEFENSE
 ]
 
 class CarIndex(Enum):
@@ -48,7 +61,7 @@ class DefenseMiniGame(BaseScript):
     '''
     def __init__(self):
         super().__init__("HumanGym")
-        self.game_phase = Phase.SETUP
+        self.game_phase = ScenarioPhase.SETUP
         # self.ui = HumanGymUI()
         self.menu_renderer = MenuRenderer(self.game_interface.renderer)
         self.offensive_mode = OffensiveMode.POSSESSION
@@ -71,12 +84,8 @@ class DefenseMiniGame(BaseScript):
         self.pause_time = 1 # Can increase if hard coded kickoffs are causing issues
         self.cur_time = 0
         self.scored_time = 0
-        self.first_kickoff = True
-        self.state_buffer = np.empty((0,37))
-        self.horz_ball_var = 'Off' # horizontal ball variance
-        self.vert_ball_var = 'Off' # vertical ball variance
-        self.ball_preview = 'Off' # show how the ball will move before kickoff commences
-        self.standard_kickoffs = 'Off'
+        self.gym_mode = GymMode.SCENARIO
+        self.race = None
 
     def run(self):
         while True:
@@ -94,6 +103,7 @@ class DefenseMiniGame(BaseScript):
                 mutators = match_settings.MutatorSettings()
                 if mutators.RespawnTimeOption() == 3:
                     self.disable_goal_reset = True
+                self.menu_renderer.add_element(UIElement('Main Menu', header=True))
                 self.menu_renderer.add_element(UIElement('Reset Score', function=self.clear_score))
                 self.menu_renderer.add_element(UIElement('Toggle Mirror', function=self.mirror_toggle))
                 self.menu_renderer.add_element(UIElement('Freeze Scenario', function=self.freeze_scenario_toggle))
@@ -107,6 +117,8 @@ class DefenseMiniGame(BaseScript):
                 for mode in DefensiveMode:
                     self.preset_mode_menu.add_element(UIElement(mode.name, function=self.select_defensive_mode, function_args=mode), column=1)
                 self.menu_renderer.add_element(UIElement('Select Preset Mode', submenu=self.preset_mode_menu))
+                self.menu_renderer.add_element(UIElement('Race Mode', function=self.set_race_mode))
+
                 # initialise reading keyboard for menu selection
                 keyboard.add_hotkey('m', self.menu_toggle)
                 keyboard.add_hotkey('0', self.clear_score)
@@ -131,72 +143,143 @@ class DefenseMiniGame(BaseScript):
             self.pause_time = 1
 
             # rendering
-            if self.game_phase not in [Phase.MENU, *CUSTOM_MODES]:
+            if self.game_phase not in [ScenarioPhase.MENU, *CUSTOM_MODES]:
                 self.do_rendering()
 
-            match self.game_phase:
-                # This is where we set up the scenario and set the game state
-                case Phase.SETUP:
-                    self.set_next_game_state()
+            if self.gym_mode == GymMode.RACE:
+                self.race_mode(packet)
 
-                    self.prev_time = self.cur_time
-                    self.game_phase = Phase.PAUSED
+            elif self.gym_mode == GymMode.SCENARIO:
+                self.scenario_mode(packet)
 
-                # Freeze the game while the menu is open
-                case Phase.MENU:
-                    self.set_game_state(self.game_state)
-                    # self.menu_rendering()
-                    self.menu_renderer.render_menu()
+    def race_mode(self, packet):
+        match self.game_phase:
+            case RacePhase.INIT:
+                car_states = {}
 
-                # A small pause to prep the player and wait for goal scored to expire
-                case Phase.PAUSED:
-                    if (self.cur_time - self.prev_time) < self.pause_time or self.goal_scored(packet) or packet.game_info.is_kickoff_pause:
-                        self.set_game_state(self.game_state)
-                    else:
-                        self.game_phase = Phase.ACTIVE
+                # Spawn the player car in the middle of the map
+                player_car_state = CarState(physics=Physics(location=Vector3(0, 0, 0), velocity=Vector3(0, 0, 0), rotation=Rotator(0, 0, 0)))
+                # Tuck the bot above the map 
+                bot_car_state = CarState(physics=Physics(location=Vector3(0, 0, 2500), velocity=Vector3(0, 0, 0), rotation=Rotator(0, 0, 0)))
 
-                # Phase in which the scenario plays out
-                case Phase.ACTIVE:
-                    if self.disable_goal_reset == True:
-                        if self.goal_scored(packet):
-                            # Add goal to whichever team scored
-                            team_scored = self.get_team_scored(packet)
-                            if team_scored == CarIndex.HUMAN.value:
-                                self.human_score += 1
-                            else:
-                                self.bot_score += 1
-                            self.game_phase = Phase.SETUP
-                            continue
-                        
-                    if packet.game_info.is_kickoff_pause:
-                        self.game_phase = Phase.SETUP
+                car_states[CarIndex.HUMAN.value] = player_car_state
+                car_states[CarIndex.BOT.value] = bot_car_state
 
-                    # Only timeout if the ball has touched the ground
-                    if (self.cur_time - self.prev_time) > self.timeout:
-                        if packet.game_ball.physics.location.z < 100:
-                            # Add a goal to the defensive team
-                            self.score_for_team(CarIndex.BOT.value if self.mirrored else CarIndex.HUMAN.value)
-                            if self.mirrored:
-                                self.bot_score += 1
-                            else:
-                                self.human_score += 1
-                            self.game_phase = Phase.SETUP
-                            self.scored_time = self.cur_time
+                self.game_state = GameState(
+                    cars=car_states
+                )
+                self.set_game_state(self.game_state)
+                self.game_phase = RacePhase.SETUP
                 
-                case Phase.CUSTOM_OFFENSE:
-                    self.custom_sandbox_rendering()
-                    self.set_game_state(self.game_state)
+            case RacePhase.SETUP:
+                self.race = race.Race()
+                player_car_state = CarState(physics=packet.game_cars[CarIndex.HUMAN.value].physics)
+                ball_state = self.race.BallState()
+   
+                self.game_state = GameState(
+                    ball=ball_state
+                )
+                self.set_game_state(self.game_state)
+                self.game_phase = RacePhase.ACTIVE
 
-                case Phase.CUSTOM_BALL:
-                    self.custom_sandbox_rendering()
-                    self.set_game_state(self.game_state)
+            case RacePhase.ACTIVE:
+                # Check if the current ball location has moved by 5 or more units, which would set up the next race
+                if abs(self.game_state.ball.physics.location.x - packet.game_ball.physics.location.x) > 2 \
+                    or abs(self.game_state.ball.physics.location.y - packet.game_ball.physics.location.y) > 2 \
+                    or abs(self.game_state.ball.physics.location.z - packet.game_ball.physics.location.z) > 2:
+                    self.human_score += 1
+                    self.game_phase = RacePhase.SETUP
 
-                case Phase.CUSTOM_DEFENSE:
-                    self.custom_sandbox_rendering()
-                    self.set_game_state(self.game_state)
+                # Continue setting the ball location to the race ball location
+                ball_state = self.race.BallState()
+                car_states = {}
+                human_loc_x = packet.game_cars[CarIndex.HUMAN.value].physics.location.x
+                human_loc_y = packet.game_cars[CarIndex.HUMAN.value].physics.location.y
+                human_loc_z = packet.game_cars[CarIndex.HUMAN.value].physics.location.z
+                human_vel_x = packet.game_cars[CarIndex.HUMAN.value].physics.velocity.x
+                human_vel_y = packet.game_cars[CarIndex.HUMAN.value].physics.velocity.y
+                human_vel_z = packet.game_cars[CarIndex.HUMAN.value].physics.velocity.z
+                human_rot_x = packet.game_cars[CarIndex.HUMAN.value].physics.rotation.pitch
+                human_rot_y = packet.game_cars[CarIndex.HUMAN.value].physics.rotation.yaw
+                human_rot_z = packet.game_cars[CarIndex.HUMAN.value].physics.rotation.roll
+                human_car_state = CarState(physics=Physics(location=Vector3(human_loc_x, human_loc_y, human_loc_z), velocity=Vector3(human_vel_x, human_vel_y, human_vel_z), rotation=Rotator(human_rot_x, human_rot_y, human_rot_z)))
+                car_states[CarIndex.HUMAN.value] = human_car_state
+                car_states[CarIndex.BOT.value] = CarState(physics=Physics(location=Vector3(0, 0, 2500), velocity=Vector3(0, 0, 0), rotation=Rotator(0, 0, 0)))
+                self.game_state = GameState(
+                    cars=car_states,
+                    ball=ball_state
+                )
+                self.set_game_state(self.game_state)
 
-                case _:
-                    pass
+            case RacePhase.MENU:
+                self.set_game_state(self.game_state)
+                self.menu_renderer.render_menu()
+
+    def scenario_mode(self, packet):
+        match self.game_phase:
+            # This is where we set up the scenario and set the game state
+            case ScenarioPhase.SETUP:
+                self.set_next_game_state()
+
+                self.prev_time = self.cur_time
+                self.game_phase = ScenarioPhase.PAUSED
+
+            # Freeze the game while the menu is open
+            case ScenarioPhase.MENU:
+                self.set_game_state(self.game_state)
+                # self.menu_rendering()
+                self.menu_renderer.render_menu()
+
+            # A small pause to prep the player and wait for goal scored to expire
+            case ScenarioPhase.PAUSED:
+                if (self.cur_time - self.prev_time) < self.pause_time or self.goal_scored(packet) or packet.game_info.is_kickoff_pause:
+                    self.set_game_state(self.game_state)
+                else:
+                    self.game_phase = ScenarioPhase.ACTIVE
+
+            # Phase in which the scenario plays out
+            case ScenarioPhase.ACTIVE:
+                if self.disable_goal_reset == True:
+                    if self.goal_scored(packet):
+                        # Add goal to whichever team scored
+                        team_scored = self.get_team_scored(packet)
+                        if team_scored == CarIndex.HUMAN.value:
+                            self.human_score += 1
+                        else:
+                            self.bot_score += 1
+                        self.game_phase = ScenarioPhase.SETUP
+                        return
+                    
+                if packet.game_info.is_kickoff_pause:
+                    self.game_phase = ScenarioPhase.SETUP
+
+                # Only timeout if the ball has touched the ground
+                if (self.cur_time - self.prev_time) > self.timeout:
+                    if packet.game_ball.physics.location.z < 100:
+                        # Add a goal to the defensive team
+                        self.score_for_team(CarIndex.BOT.value if self.mirrored else CarIndex.HUMAN.value)
+                        if self.mirrored:
+                            self.bot_score += 1
+                        else:
+                            self.human_score += 1
+                        self.game_phase = ScenarioPhase.SETUP
+                        self.scored_time = self.cur_time
+            
+            case ScenarioPhase.CUSTOM_OFFENSE:
+                self.custom_sandbox_rendering()
+                self.set_game_state(self.game_state)
+
+            case ScenarioPhase.CUSTOM_BALL:
+                self.custom_sandbox_rendering()
+                self.set_game_state(self.game_state)
+
+            case ScenarioPhase.CUSTOM_DEFENSE:
+                self.custom_sandbox_rendering()
+                self.set_game_state(self.game_state)
+
+            case _:
+                pass
+
 
     def set_next_game_state(self):
         if not self.freeze_scenario:
@@ -233,11 +316,11 @@ class DefenseMiniGame(BaseScript):
 
     def custom_sandbox_rendering(self):
         object_name = ""
-        if self.game_phase == Phase.CUSTOM_OFFENSE:
+        if self.game_phase == ScenarioPhase.CUSTOM_OFFENSE:
             object_name = "Offensive Car"
-        elif self.game_phase == Phase.CUSTOM_BALL:
+        elif self.game_phase == ScenarioPhase.CUSTOM_BALL:
             object_name = "Ball"
-        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+        elif self.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
             object_name = "Defensive Car"
         text = f"Custom Mode Sandbox: {object_name}\
         \n[x] modify x coordinate\
@@ -314,12 +397,10 @@ class DefenseMiniGame(BaseScript):
         return team
     
     def menu_toggle(self):
-        if self.game_phase == Phase.MENU:
-            self.game_phase = Phase.PAUSED
+        if self.game_phase == ScenarioPhase.MENU:
+            self.game_phase = ScenarioPhase.PAUSED
         else:
-            self.game_phase = Phase.MENU
-
-
+            self.game_phase = ScenarioPhase.MENU
 
 
     ##################################
@@ -331,11 +412,11 @@ class DefenseMiniGame(BaseScript):
             # Get object to modify
             object_to_modify = None
             match self.game_phase:
-                case Phase.CUSTOM_OFFENSE:
+                case ScenarioPhase.CUSTOM_OFFENSE:
                     object_to_modify = self.game_state.cars[CarIndex.HUMAN.value]
-                case Phase.CUSTOM_BALL:
+                case ScenarioPhase.CUSTOM_BALL:
                     object_to_modify = self.game_state.ball
-                case Phase.CUSTOM_DEFENSE:
+                case ScenarioPhase.CUSTOM_DEFENSE:
                     object_to_modify = self.game_state.cars[CarIndex.BOT.value]
             
             match self.custom_updown_selection:
@@ -357,11 +438,11 @@ class DefenseMiniGame(BaseScript):
             # Get object to modify
             object_to_modify = None
             match self.game_phase:
-                case Phase.CUSTOM_OFFENSE:
+                case ScenarioPhase.CUSTOM_OFFENSE:
                     object_to_modify = self.game_state.cars[CarIndex.HUMAN.value]
-                case Phase.CUSTOM_BALL:
+                case ScenarioPhase.CUSTOM_BALL:
                     object_to_modify = self.game_state.ball
-                case Phase.CUSTOM_DEFENSE:
+                case ScenarioPhase.CUSTOM_DEFENSE:
                     object_to_modify = self.game_state.cars[CarIndex.BOT.value]
             
             match self.custom_updown_selection:
@@ -383,11 +464,11 @@ class DefenseMiniGame(BaseScript):
             # Get object to modify
             object_to_modify = None
             match self.game_phase:
-                case Phase.CUSTOM_OFFENSE:
+                case ScenarioPhase.CUSTOM_OFFENSE:
                     object_to_modify = self.game_state.cars[CarIndex.HUMAN.value]
-                case Phase.CUSTOM_BALL:
+                case ScenarioPhase.CUSTOM_BALL:
                     object_to_modify = self.game_state.ball
-                case Phase.CUSTOM_DEFENSE:
+                case ScenarioPhase.CUSTOM_DEFENSE:
                     object_to_modify = self.game_state.cars[CarIndex.BOT.value]
             
             match self.custom_leftright_selection:
@@ -407,11 +488,11 @@ class DefenseMiniGame(BaseScript):
             # Get object to modify
             object_to_modify = None
             match self.game_phase:
-                case Phase.CUSTOM_OFFENSE:
+                case ScenarioPhase.CUSTOM_OFFENSE:
                     object_to_modify = self.game_state.cars[CarIndex.HUMAN.value]
-                case Phase.CUSTOM_BALL:
+                case ScenarioPhase.CUSTOM_BALL:
                     object_to_modify = self.game_state.ball
-                case Phase.CUSTOM_DEFENSE:
+                case ScenarioPhase.CUSTOM_DEFENSE:
                     object_to_modify = self.game_state.cars[CarIndex.BOT.value]
             
             match self.custom_leftright_selection:
@@ -444,24 +525,24 @@ class DefenseMiniGame(BaseScript):
         else:
             self.mirrored = True
         
-        if self.game_phase != Phase.MENU:
-            self.game_phase = Phase.SETUP
+        if self.game_phase != ScenarioPhase.MENU:
+            self.game_phase = ScenarioPhase.SETUP
         else:
             self.set_next_game_state()
 
     def select_offensive_mode(self, mode):
         print(f"Selecting offensive mode: {mode}")
         self.offensive_mode = mode
-        if self.game_phase != Phase.MENU:
-            self.game_phase = Phase.SETUP
+        if self.game_phase != ScenarioPhase.MENU:
+            self.game_phase = ScenarioPhase.SETUP
         else:
             self.set_next_game_state()
 
     def select_defensive_mode(self, mode):
         print(f"Selecting defensive mode: {mode}")
         self.defensive_mode = mode
-        if self.game_phase != Phase.MENU:
-            self.game_phase = Phase.SETUP
+        if self.game_phase != ScenarioPhase.MENU:
+            self.game_phase = ScenarioPhase.SETUP
         else:
             self.set_next_game_state()
 
@@ -491,8 +572,8 @@ class DefenseMiniGame(BaseScript):
         if self.freeze_scenario_index > 0:
             self.freeze_scenario_index -= 1
 
-        if self.game_phase != Phase.MENU:
-            self.game_phase = Phase.SETUP
+        if self.game_phase != ScenarioPhase.MENU:
+            self.game_phase = ScenarioPhase.SETUP
         else:
             self.set_next_game_state()
 
@@ -503,15 +584,17 @@ class DefenseMiniGame(BaseScript):
         if self.freeze_scenario_index < len(self.scenario_history) - 1:
             self.freeze_scenario_index += 1
 
-        if self.game_phase != Phase.MENU:
-            self.game_phase = Phase.SETUP
+        if self.game_phase != ScenarioPhase.MENU:
+            self.game_phase = ScenarioPhase.SETUP
         else:
             self.set_next_game_state()
 
     def create_custom_mode(self):
-        self.game_phase = Phase.CUSTOM_OFFENSE
+        self.game_phase = ScenarioPhase.CUSTOM_OFFENSE
 
-
+    def set_race_mode(self):
+        self.gym_mode = GymMode.RACE
+        self.game_phase = RacePhase.INIT
 
 
     #######################################
@@ -519,23 +602,23 @@ class DefenseMiniGame(BaseScript):
     #######################################
 
     def next_custom_step(self):
-        if self.game_phase == Phase.CUSTOM_OFFENSE:
-            self.game_phase = Phase.CUSTOM_BALL
-        elif self.game_phase == Phase.CUSTOM_BALL:
-            self.game_phase = Phase.CUSTOM_DEFENSE
-        elif self.game_phase == Phase.CUSTOM_DEFENSE:
+        if self.game_phase == ScenarioPhase.CUSTOM_OFFENSE:
+            self.game_phase = ScenarioPhase.CUSTOM_BALL
+        elif self.game_phase == ScenarioPhase.CUSTOM_BALL:
+            self.game_phase = ScenarioPhase.CUSTOM_DEFENSE
+        elif self.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
             scenario = Scenario.FromGameState(self.game_state)
             self.scenario_history.append(scenario)
             self.freeze_scenario_index = len(self.scenario_history) - 1
-            self.game_phase = Phase.MENU
+            self.game_phase = ScenarioPhase.MENU
     
     def prev_custom_step(self):
-        if self.game_phase == Phase.CUSTOM_OFFENSE:
-            self.game_phase = Phase.MENU
-        elif self.game_phase == Phase.CUSTOM_BALL:
-            self.game_phase = Phase.CUSTOM_OFFENSE
-        elif self.game_phase == Phase.CUSTOM_DEFENSE:
-            self.game_phase = Phase.CUSTOM_BALL
+        if self.game_phase == ScenarioPhase.CUSTOM_OFFENSE:
+            self.game_phase = ScenarioPhase.MENU
+        elif self.game_phase == ScenarioPhase.CUSTOM_BALL:
+            self.game_phase = ScenarioPhase.CUSTOM_OFFENSE
+        elif self.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
+            self.game_phase = ScenarioPhase.CUSTOM_BALL
 
 
     def custom_select_x(self):

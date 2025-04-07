@@ -135,7 +135,10 @@ class MenuRenderer():
                     element.entered = True
                 elif element.function:
                     print("entering element: ", element)
-                    element.function(element.function_args)
+                    if element.function_args:
+                        element.function(element.function_args)
+                    else:
+                        element.function()
                 break
 
     def render_menu(self):
