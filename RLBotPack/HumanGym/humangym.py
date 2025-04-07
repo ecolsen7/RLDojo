@@ -39,8 +39,7 @@ class RacePhase(Enum):
     SETUP = 0
     ACTIVE = 1
     MENU = 2
-
-
+    FINISHED = 3
 
 CUSTOM_MODES = [
     ScenarioPhase.CUSTOM_OFFENSE,
@@ -84,6 +83,7 @@ class DefenseMiniGame(BaseScript):
         self.pause_time = 1 # Can increase if hard coded kickoffs are causing issues
         self.cur_time = 0
         self.scored_time = 0
+        self.started_time = 0
         self.gym_mode = GymMode.SCENARIO
         self.race = None
 
@@ -155,6 +155,15 @@ class DefenseMiniGame(BaseScript):
     def race_mode(self, packet):
         match self.game_phase:
             case RacePhase.INIT:
+                # Seed the random number generator to get reproducible setups
+                np.random.seed(0)
+
+                self.human_score = 0
+                self.bot_score = 0
+
+                # Set scored time to now
+                self.started_time = self.cur_time
+                
                 car_states = {}
 
                 # Spawn the player car in the middle of the map
@@ -190,6 +199,9 @@ class DefenseMiniGame(BaseScript):
                     self.human_score += 1
                     self.game_phase = RacePhase.SETUP
 
+                    if self.human_score == 100:
+                        self.game_phase = RacePhase.FINISHED
+                        
                 # Continue setting the ball location to the race ball location
                 ball_state = self.race.BallState()
                 car_states = {}
@@ -212,6 +224,10 @@ class DefenseMiniGame(BaseScript):
                 self.set_game_state(self.game_state)
 
             case RacePhase.MENU:
+                self.set_game_state(self.game_state)
+                self.menu_renderer.render_menu()
+
+            case RacePhase.FINISHED:
                 self.set_game_state(self.game_state)
                 self.menu_renderer.render_menu()
 
@@ -303,15 +319,26 @@ class DefenseMiniGame(BaseScript):
         self.set_game_state(GameState(ball=ball_state))
 
     def do_rendering(self):
+        minutes_since_start = int((self.cur_time - self.started_time) // 60)
+        seconds_since_start = int((self.cur_time - self.started_time) % 60)
+        seconds_str = str(seconds_since_start)
+        if seconds_since_start < 10:
+            seconds_str = "0" + seconds_str
         color = self.renderer.yellow()
-        color2 = self.renderer.black()
+        score_box_start_x = 850
+        score_box_start_y = 100
+        score_box_width = 150
+        score_box_height = 70
         text = f"Welcome to the HumanGym. Press 'm' to enter menu"
         scores = f"Human: {self.human_score} Bot: {self.bot_score}"
         total_score = f"Total: {self.human_score + self.bot_score}"
+        time_since_start = f"Time: {minutes_since_start}:{seconds_str}"
         self.game_interface.renderer.begin_rendering()
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
-        self.game_interface.renderer.draw_string_2d(830, 100, 1, 1, scores, color2)
-        self.game_interface.renderer.draw_string_2d(880, 130, 1, 1, total_score, color2)
+        self.game_interface.renderer.draw_rect_2d(score_box_start_x, score_box_start_y, score_box_width, score_box_height, True, self.renderer.white())
+        self.game_interface.renderer.draw_string_2d(score_box_start_x, score_box_start_y, 1, 1, scores, self.renderer.black())
+        self.game_interface.renderer.draw_string_2d(score_box_start_x + 50, score_box_start_y + 30, 1, 1, total_score, self.renderer.black())
+        self.game_interface.renderer.draw_string_2d(score_box_start_x + 50, score_box_start_y + 60, 1, 1, time_since_start, self.renderer.black())
         self.game_interface.renderer.end_rendering()
 
     def custom_sandbox_rendering(self):
