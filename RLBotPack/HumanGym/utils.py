@@ -1,6 +1,10 @@
 import numpy as np
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator, GameInfoState
 
+SIDE_WALL=4096
+# From perspective of default scenario - blue team defending
+BACK_WALL=-5120
+
 def get_velocity_from_yaw(yaw, min_velocity, max_velocity):
     # yaw is in radians, use this to get the ratio of x/y velocity
     # X = cos(yaw) 
@@ -67,3 +71,38 @@ def get_velocity_from_rotation(rotation, min_velocity, max_velocity):
     velocity_y = (velocity_factor * np.sin(yaw)) * np.cos(pitch)
     velocity_z = velocity_factor * np.sin(pitch)
     return Vector3(velocity_x, velocity_y, velocity_z)
+
+def sanity_check_objects(objects):
+    '''If any of the objects have been placed outside of the map, move them to the nearest edge of the map'''
+    # Back wall is biased toward the negative end, which makes this math a little fucky
+    for object in objects:
+        if object.physics.location.x < -SIDE_WALL:
+            object.physics.location.x = -(SIDE_WALL-100)
+        elif object.physics.location.x > SIDE_WALL:
+            object.physics.location.x = SIDE_WALL-100
+        if object.physics.location.y > -BACK_WALL:
+            # Make an exception if in the goal, which is between -/+893 x
+            if not (object.physics.location.x > -893 and object.physics.location.x < 893):
+                object.physics.location.y = -(BACK_WALL+100)
+        elif object.physics.location.y < BACK_WALL:
+            # Make an exception if in the goal, which is between -/+893 x
+            if not (object.physics.location.x > -893 and object.physics.location.x < 893):
+                object.physics.location.y = BACK_WALL+100
+
+        # Also account for corners, which is going to suck
+        # Corners start 1152 units in from the side walls and back walls
+        # That translates to 4096 - 1152 = 2944 in X axis
+        # And 5120 - 1152 = 3968 in Y axis
+        # So if the object is outside of both of those, move it inside
+        if object.physics.location.x > 2944 and object.physics.location.y > 3968:
+            object.physics.location.x = 2944
+            object.physics.location.y = 3968
+        elif object.physics.location.x < -2944 and object.physics.location.y > 3968:
+            object.physics.location.x = -2944
+            object.physics.location.y = 3968
+        elif object.physics.location.x > 2944 and object.physics.location.y < -3968:
+            object.physics.location.x = 2944
+            object.physics.location.y = -3968
+        elif object.physics.location.x < -2944 and object.physics.location.y < -3968:
+            object.physics.location.x = -2944
+            object.physics.location.y = -3968
