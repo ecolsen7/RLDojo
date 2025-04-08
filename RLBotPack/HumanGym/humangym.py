@@ -1,6 +1,7 @@
 import numpy as np
 from enum import Enum
 import keyboard
+import time
 
 from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator, GameInfoState
@@ -229,7 +230,8 @@ class DefenseMiniGame(BaseScript):
 
             case RacePhase.FINISHED:
                 self.set_game_state(self.game_state)
-                self.menu_renderer.render_menu()
+                time.sleep(10)
+                self.game_phase = RacePhase.SETUP
 
     def scenario_mode(self, packet):
         match self.game_phase:
@@ -424,10 +426,17 @@ class DefenseMiniGame(BaseScript):
         return team
     
     def menu_toggle(self):
-        if self.game_phase == ScenarioPhase.MENU:
-            self.game_phase = ScenarioPhase.PAUSED
-        else:
-            self.game_phase = ScenarioPhase.MENU
+        match self.gym_mode:
+            case GymMode.RACE:
+                if self.game_phase == RacePhase.MENU:
+                    self.game_phase = RacePhase.ACTIVE
+                else:
+                    self.game_phase = RacePhase.MENU
+            case GymMode.SCENARIO:
+                if self.game_phase == ScenarioPhase.MENU:
+                    self.game_phase = ScenarioPhase.PAUSED
+                else:
+                    self.game_phase = ScenarioPhase.MENU
 
 
     ##################################
