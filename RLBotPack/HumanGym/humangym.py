@@ -9,6 +9,7 @@ from scenario import Scenario, OffensiveMode, DefensiveMode
 from menu import MenuRenderer, UIElement
 import utils
 import race
+import records
 
 class CustomUpDownSelection(Enum):
     Y = 1
@@ -87,6 +88,7 @@ class DefenseMiniGame(BaseScript):
         self.started_time = 0
         self.gym_mode = GymMode.SCENARIO
         self.race = None
+        self.race_mode_trials = 100
 
     def run(self):
         while True:
@@ -118,14 +120,15 @@ class DefenseMiniGame(BaseScript):
                 for mode in DefensiveMode:
                     self.preset_mode_menu.add_element(UIElement(mode.name, function=self.select_defensive_mode, function_args=mode), column=1)
                 self.menu_renderer.add_element(UIElement('Select Preset Mode', submenu=self.preset_mode_menu))
-                self.menu_renderer.add_element(UIElement('Race Mode', function=self.set_race_mode))
+                # self.menu_renderer.add_element(UIElement('Race Mode', function=self.set_race_mode))
+                self.race_mode_menu = MenuRenderer(self.game_interface.renderer)
+                self.race_mode_menu.add_element(UIElement('Number of Trials', header=True))
+                for option in (10, 25, 50, 100):
+                    self.race_mode_menu.add_element(UIElement(str(option), function=self.set_race_mode, function_args=option))
+                self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
 
                 # initialise reading keyboard for menu selection
                 keyboard.add_hotkey('m', self.menu_toggle)
-                keyboard.add_hotkey('0', self.clear_score)
-                keyboard.add_hotkey('1', self.mirror_toggle)
-                keyboard.add_hotkey('f', self.freeze_scenario_toggle)
-                keyboard.add_hotkey('c', self.create_custom_mode)
                 keyboard.add_hotkey('left', self.left_handler)
                 keyboard.add_hotkey('right', self.right_handler)
                 keyboard.add_hotkey('down', self.down_handler)
@@ -200,7 +203,7 @@ class DefenseMiniGame(BaseScript):
                     self.human_score += 1
                     self.game_phase = RacePhase.SETUP
 
-                    if self.human_score == 100:
+                    if self.human_score == self.race_mode_trials:
                         self.game_phase = RacePhase.FINISHED
                         
                 # Continue setting the ball location to the race ball location
@@ -230,8 +233,13 @@ class DefenseMiniGame(BaseScript):
 
             case RacePhase.FINISHED:
                 self.set_game_state(self.game_state)
+
+                # Save the record
+                record = records.RaceRecord(self.human_score, self.cur_time - self.started_time)
+                records.update_race_record_if_faster(record)
+
                 time.sleep(10)
-                self.game_phase = RacePhase.SETUP
+                self.game_phase = RacePhase.INIT
 
     def scenario_mode(self, packet):
         match self.game_phase:
@@ -332,9 +340,14 @@ class DefenseMiniGame(BaseScript):
         score_box_width = 150
         score_box_height = 70
         text = f"Welcome to the HumanGym. Press 'm' to enter menu"
-        scores = f"Human: {self.human_score} Bot: {self.bot_score}"
-        total_score = f"Total: {self.human_score + self.bot_score}"
-        time_since_start = f"Time: {minutes_since_start}:{seconds_str}"
+        if self.gym_mode == GymMode.SCENARIO:
+            scores = f"Human: {self.human_score} Bot: {self.bot_score}"
+            total_score = f"Total: {self.human_score + self.bot_score}"
+            time_since_start = f"Time: {minutes_since_start}:{seconds_str}"
+        elif self.gym_mode == GymMode.RACE:
+            scores = f"Completed: {self.human_score}"
+            total_score = f"Out of: 100"
+            time_since_start = f"Time: {minutes_since_start}:{seconds_str}"
         self.game_interface.renderer.begin_rendering()
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
         self.game_interface.renderer.draw_rect_2d(score_box_start_x, score_box_start_y, score_box_width, score_box_height, True, self.renderer.white())
@@ -628,9 +641,10 @@ class DefenseMiniGame(BaseScript):
     def create_custom_mode(self):
         self.game_phase = ScenarioPhase.CUSTOM_OFFENSE
 
-    def set_race_mode(self):
+    def set_race_mode(self, trials):
         self.gym_mode = GymMode.RACE
         self.game_phase = RacePhase.INIT
+        self.race_mode_trials = trials
 
 
     #######################################
