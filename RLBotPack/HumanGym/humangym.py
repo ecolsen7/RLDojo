@@ -89,6 +89,7 @@ class DefenseMiniGame(BaseScript):
         self.gym_mode = GymMode.SCENARIO
         self.race = None
         self.race_mode_trials = 100
+        self.race_mode_previous_record = None
 
     def run(self):
         while True:
@@ -123,7 +124,7 @@ class DefenseMiniGame(BaseScript):
                 # self.menu_renderer.add_element(UIElement('Race Mode', function=self.set_race_mode))
                 self.race_mode_menu = MenuRenderer(self.game_interface.renderer)
                 self.race_mode_menu.add_element(UIElement('Number of Trials', header=True))
-                for option in (10, 25, 50, 100):
+                for option in (1, 10, 25, 50, 100):
                     self.race_mode_menu.add_element(UIElement(str(option), function=self.set_race_mode, function_args=option))
                 self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
 
@@ -203,7 +204,7 @@ class DefenseMiniGame(BaseScript):
                     self.human_score += 1
                     self.game_phase = RacePhase.SETUP
 
-                    if self.human_score == self.race_mode_trials:
+                    if self.human_score >= self.race_mode_trials:
                         self.game_phase = RacePhase.FINISHED
                         
                 # Continue setting the ball location to the race ball location
@@ -235,8 +236,15 @@ class DefenseMiniGame(BaseScript):
                 self.set_game_state(self.game_state)
 
                 # Save the record
-                record = records.RaceRecord(self.human_score, self.cur_time - self.started_time)
-                records.update_race_record_if_faster(record)
+                print("Cur time: ", self.cur_time)
+                print("Started time: ", self.started_time)
+                print("Time was: ", self.cur_time - self.started_time)
+                if self.human_score >= self.race_mode_trials:
+                    record = records.RaceRecord(
+                        number_of_trials=self.race_mode_trials, 
+                        total_time_to_finish=float(self.cur_time - self.started_time)
+                    )
+                    records.update_race_record_if_faster(record)
 
                 time.sleep(10)
                 self.game_phase = RacePhase.INIT
@@ -335,25 +343,33 @@ class DefenseMiniGame(BaseScript):
         if seconds_since_start < 10:
             seconds_str = "0" + seconds_str
         color = self.renderer.yellow()
-        score_box_start_x = 850
+        score_box_start_x = 50
         score_box_start_y = 100
-        score_box_width = 150
-        score_box_height = 70
+        score_box_width = 240
+        score_box_height = 130
         text = f"Welcome to the HumanGym. Press 'm' to enter menu"
+        previous_record = f"No record"
         if self.gym_mode == GymMode.SCENARIO:
             scores = f"Human: {self.human_score} Bot: {self.bot_score}"
             total_score = f"Total: {self.human_score + self.bot_score}"
             time_since_start = f"Time: {minutes_since_start}:{seconds_str}"
+            previous_record = ""
         elif self.gym_mode == GymMode.RACE:
             scores = f"Completed: {self.human_score}"
-            total_score = f"Out of: 100"
+            total_score = f"Out of: {self.race_mode_trials}"
             time_since_start = f"Time: {minutes_since_start}:{seconds_str}"
+            if self.race_mode_previous_record:
+                minutes_previous_record_str = str(int(self.race_mode_previous_record // 60))
+                seconds_previous_record_str = str(int(self.race_mode_previous_record % 60))
+                previous_record = f"Previous Record: {minutes_previous_record_str}:{seconds_previous_record_str}"
         self.game_interface.renderer.begin_rendering()
         self.game_interface.renderer.draw_string_2d(20, 50, 1, 1, text, color)
         self.game_interface.renderer.draw_rect_2d(score_box_start_x, score_box_start_y, score_box_width, score_box_height, True, self.renderer.white())
-        self.game_interface.renderer.draw_string_2d(score_box_start_x, score_box_start_y, 1, 1, scores, self.renderer.black())
-        self.game_interface.renderer.draw_string_2d(score_box_start_x + 50, score_box_start_y + 30, 1, 1, total_score, self.renderer.black())
-        self.game_interface.renderer.draw_string_2d(score_box_start_x + 50, score_box_start_y + 60, 1, 1, time_since_start, self.renderer.black())
+        self.game_interface.renderer.draw_string_2d(score_box_start_x + 10, score_box_start_y + 10, 1, 1, scores, self.renderer.black())
+        self.game_interface.renderer.draw_string_2d(score_box_start_x + 10, score_box_start_y + 40, 1, 1, total_score, self.renderer.black())
+        self.game_interface.renderer.draw_string_2d(score_box_start_x + 10, score_box_start_y + 70, 1, 1, time_since_start, self.renderer.black())
+        self.game_interface.renderer.draw_string_2d(score_box_start_x + 10, score_box_start_y + 100, 1, 1, previous_record, self.renderer.black())
+
         self.game_interface.renderer.end_rendering()
 
     def custom_sandbox_rendering(self):
@@ -642,9 +658,11 @@ class DefenseMiniGame(BaseScript):
         self.game_phase = ScenarioPhase.CUSTOM_OFFENSE
 
     def set_race_mode(self, trials):
+        print(f"Setting race mode")
         self.gym_mode = GymMode.RACE
         self.game_phase = RacePhase.INIT
         self.race_mode_trials = trials
+        self.race_mode_previous_record = records.get_race_record(trials)
 
 
     #######################################
