@@ -1,5 +1,8 @@
 import os
 import json
+from typing import List, Optional
+from dataclasses import dataclass, asdict
+
 # Scenario mode records
 # Contains:
 # - Offensive scenario type
@@ -9,30 +12,24 @@ import json
 # - Bot score
 # - Bot name
 
+@dataclass
 class ScenarioRecord:
-    def __init__(self, offensive_scenario_type, defensive_scenario_type, total_goals_scored, human_score, bot_score, bot_name):
-        self.offensive_scenario_type = offensive_scenario_type
-        self.defensive_scenario_type = defensive_scenario_type
-        self.total_goals_scored = total_goals_scored
-        self.human_score = human_score
-        self.bot_score = bot_score
-        self.bot_name = bot_name
-
-    def to_json(self):
-        return json.dump(self.__dict__)
+    offensive_scenario_type: str
+    defensive_scenario_type: str
+    total_goals_scored: int
+    human_score: int
+    bot_score: int
+    bot_name: str
 
 # Race mode records
 # Contains:
 # - Number of trials
 # - Total time to finish
 
+@dataclass
 class RaceRecord:
-    def __init__(self, number_of_trials, total_time_to_finish):
-        self.number_of_trials = number_of_trials
-        self.total_time_to_finish = total_time_to_finish
-
-    def to_json(self):
-        return json.dump(self.__dict__)
+    number_of_trials: int
+    total_time_to_finish: float
 
 def get_race_records_path():
     appdata_path = os.path.expandvars("%APPDATA%")
@@ -40,42 +37,58 @@ def get_race_records_path():
         os.makedirs(os.path.join(appdata_path, "RLBot", "HumanGym"))
     return os.path.join(appdata_path, "RLBot", "HumanGym", "race_records.json")
 
-def get_race_records():
+def get_race_records() -> List[RaceRecord]:
     if not os.path.exists(get_race_records_path()):
-        return {}
-    with open(get_race_records_path(), "r") as f:
-        records = json.load(f)
-    return records[mode]
+        return []
 
-def update_race_record_if_faster(record):
+    with open(get_race_records_path(), "r") as f:
+        try:
+            records = json.load(f)
+            print(f"Loaded records {str(records)}")
+        except json.JSONDecodeError:
+            # If the file is empty or corrupted, create a new one
+            records = []
+
+    parsed_records = [RaceRecord(**record) for record in records]
+
+    return parsed_records
+
+def get_race_record(number_of_trials: int) -> Optional[float]:
+    for record in get_race_records():
+        if record.number_of_trials == number_of_trials:
+            print(f"Found record for {number_of_trials} trials: {record}")
+            return record.total_time_to_finish
+    print(f"No record found for the given number of trials. {str(get_race_records())}")
+
+def store_race_records(records: List[RaceRecord]):
+    race_records = [
+        asdict(record) for record in records
+    ]
+    with open(get_race_records_path(), "w") as f:
+        print(f"Storing race records to {get_race_records_path()}")
+        print(f"Records: {json.dumps(race_records)}")
+        json.dump(race_records, f, indent=4)
+
+
+def update_race_record_if_faster(record: RaceRecord):
+    if record.total_time_to_finish == 0:
+        print("Record time is 0, not updating")
+        return
+
     # Debug log
     print(f"Updating race record if faster at path: {get_race_records_path()}, record: {record}")
-    if not os.path.exists(get_race_records_path()):
-        records = {}
-    else:
-        with open(get_race_records_path(), "r") as f:
-            records = json.load(f)
-
-    # Load all of the existing records as race record classes
-    existing_records = []
-    for record in records:
-        existing_records.append(RaceRecord(**record))
+    race_records = get_race_records()
 
     # Compare this run to the previous record at the same number of trials
-    record_to_delete = None
-    for i, existing_record in enumerate(existing_records):
-        if existing_record.number_of_trials == record.number_of_trials:
-            if existing_record.total_time_to_finish > record.total_time_to_finish:
-                existing_records[i] = record
-                break
 
-    # Add the new record to the list
-    existing_records.append(record)
+    for race_record in race_records:
+        if race_record.number_of_trials == record.number_of_trials:
+            race_record.total_time_to_finish = min(
+                race_record.total_time_to_finish, record.total_time_to_finish
+            )
+            break
+    else:
+        race_records.append(record)
 
     # Store the records
-    with open(get_race_records_path(), "w") as f:
-        json.dump(existing_records, f)
-
-
-    
-
+    store_race_records(race_records)
