@@ -17,6 +17,7 @@ class OffensiveMode(Enum):
     SIDEWALL_BREAKOUT = 9
     BACK_CORNER_BREAKOUT = 10
     BACKBOARD_PASS = 11
+    SIDE_BACKBOARD_PASS = 12
 
 class DefensiveMode(Enum):
     NEAR_SHADOW = 0
@@ -64,6 +65,8 @@ class Scenario:
                 self.__setup_sidewall_breakout_offense()
             case OffensiveMode.BACK_CORNER_BREAKOUT:
                 self.__setup_backcorner_breakout_offense()
+            case OffensiveMode.SIDE_BACKBOARD_PASS:
+                self.__setup_side_backboard_pass_offense()
 
 
         match defensive_mode:
@@ -83,8 +86,8 @@ class Scenario:
             utils.sanity_check_objects([self.offensive_car_state, self.defensive_car_state, self.ball_state])
 
         # Randomize boost level of each car
-        self.offensive_car_state.boost_amount = utils.random_between(0, 100)
-        self.defensive_car_state.boost_amount = utils.random_between(0, 100)
+        self.offensive_car_state.boost_amount = utils.random_between(12, 100)
+        self.defensive_car_state.boost_amount = utils.random_between(12, 100)
 
     @staticmethod
     def FromGameState(game_state):
@@ -569,6 +572,44 @@ class Scenario:
         ball_velocity_z = utils.random_between(300, 500)
         ball_velocity = Vector3(ball_velocity_x, ball_velocity_y, ball_velocity_z)
 
+        self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
+                        angular_velocity=Vector3(0, 0, 0)))
+        self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
+
+    def __setup_side_backboard_pass_offense(self):
+        """
+        Setup a side backboard pass scenario where:
+        - Ball starts near one side wall, bounces off the backboard to the side of the net
+        - Offensive car starts on the same side as the ball, pointing toward the opponent's goal
+        """
+        # Offensive car yaw is toward the goal (1.5*pi)
+        self.play_yaw = 1.5*np.pi
+        offensive_car_yaw = self.play_yaw + utils.random_between(-0.1*np.pi, 0.1*np.pi)
+        
+        # Offensive car velocity toward the goal
+        offensive_car_velocity = utils.get_velocity_from_yaw(offensive_car_yaw, min_velocity=800, max_velocity=1200)
+        
+        # Randomly choose which side the ball starts on (left or right)
+        ball_side = np.random.choice([-1, 1])  # -1 for left side, 1 for right side
+        
+        # Ball starts near the side wall on one side
+        ball_x_location = ball_side * (utils.SIDE_WALL - utils.random_between(200, 800))
+        ball_y_location = utils.BACK_WALL + utils.random_between(2500, 3500)  # Near the back wall
+        ball_z_location = 93 + utils.random_between(300, 800)  # Lower height for more realistic backboard pass
+        ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
+        
+        # Ball velocity: heading toward the backboard, but angled to bounce to the opposite side
+        # The ball should bounce off the backboard and head toward the side of the net opposite from where it started
+        ball_velocity_x = -ball_side * utils.random_between(1200, 1600)  # Toward opposite side - increased speed
+        ball_velocity_y = utils.random_between(-2500, -3000)  # Toward the backboard/goal - increased speed
+        ball_velocity_z = utils.random_between(-50, 300)  # Slight vertical component - increased range
+        ball_velocity = Vector3(ball_velocity_x, ball_velocity_y, ball_velocity_z)
+        
+        # Offensive car starts on the same side as the ball
+        offensive_car_x = ball_side * utils.random_between(1000, 2000)  # Same side as ball
+        offensive_car_y = utils.random_between(0, 1000)  # Positioned to follow up on the pass
+        offensive_car_position = Vector3(offensive_car_x, offensive_car_y, 17)
+        
         self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
         self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
