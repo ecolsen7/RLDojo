@@ -18,6 +18,7 @@ class OffensiveMode(Enum):
     BACK_CORNER_BREAKOUT = 10
     BACKBOARD_PASS = 11
     SIDE_BACKBOARD_PASS = 12
+    OVER_SHOULDER = 13
 
 class DefensiveMode(Enum):
     NEAR_SHADOW = 0
@@ -67,7 +68,8 @@ class Scenario:
                 self.__setup_backcorner_breakout_offense()
             case OffensiveMode.SIDE_BACKBOARD_PASS:
                 self.__setup_side_backboard_pass_offense()
-
+            case OffensiveMode.OVER_SHOULDER:
+                self.__setup_over_shoulder_offense()
 
         match defensive_mode:
             case DefensiveMode.NEAR_SHADOW:
@@ -613,6 +615,64 @@ class Scenario:
         self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
         self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
+
+    def __setup_over_shoulder_offense(self):
+        """
+        Setup an over-the-shoulder scenario where:
+        - Offensive car is positioned in the offensive half, facing toward the goal
+        - Ball comes from behind/above the car (from the defensive end)
+        - Ball trajectory goes "over the shoulder" of the offensive car
+        - Car needs to turn around or adjust to receive/intercept the ball
+        """
+        # Offensive car yaw is toward the goal (1.5*pi)
+        self.play_yaw = 1.5*np.pi
+        offensive_car_yaw = self.play_yaw + utils.random_between(-0.2*np.pi, 0.2*np.pi)
+        
+        # Offensive car velocity toward the goal
+        offensive_car_velocity = utils.get_velocity_from_yaw(offensive_car_yaw, min_velocity=1000, max_velocity=1400)
+        
+        # Offensive car should be roughly in the middle, but distinctly on one X side
+        x_side = np.random.choice([-1, 1])
+        offensive_car_x = x_side * utils.random_between(2000, 2500)
+        offensive_car_y = utils.random_between(-500, 1500)
+        offensive_car_position = Vector3(offensive_car_x, offensive_car_y, 17)
+        
+        # Ball starts from behind the car (defensive end), elevated
+        # Position it "over the shoulder" - behind and to one side
+        # Ball should be on the opposite X side as the offensive car
+        shoulder_side = -x_side
+        
+        # Ball starts behind the car and elevated
+        # Ball should be distinctly on the opposite X side as the offensive car
+        ball_x_location = offensive_car_x + shoulder_side * utils.random_between(1500, 2000)  # To the side
+        ball_y_location = offensive_car_y + utils.random_between(1500, 3000)  # Behind the car (toward defensive end)
+        ball_z_location = 93 + utils.random_between(400, 1200)  # Elevated
+        ball_position = Vector3(ball_x_location, ball_y_location, ball_z_location)
+        
+        # Ball velocity: should be roughly going toward the goal, but slightly toward the side of the offensive car
+        target_x = offensive_car_x + shoulder_side * utils.random_between(500, 1000)  # Opposite side from start
+        target_y = offensive_car_y - utils.random_between(800, 1500)  # In front of the car
+        
+        # Calculate velocity to reach the target area
+        delta_x = target_x - ball_x_location
+        delta_y = target_y - ball_y_location
+        
+        # Normalize and scale the horizontal velocity
+        horizontal_distance = np.sqrt(delta_x**2 + delta_y**2)
+        velocity_magnitude = utils.random_between(2800, 2900)
+        
+        ball_velocity_x = (delta_x / horizontal_distance) * velocity_magnitude
+        ball_velocity_y = (delta_y / horizontal_distance) * velocity_magnitude
+        ball_velocity_z = utils.random_between(100, 400)  # Slight downward trajectory
+        
+        ball_velocity = Vector3(ball_velocity_x, ball_velocity_y, ball_velocity_z)
+        
+        self.offensive_car_state = CarState(boost_amount=100, physics=Physics(location=offensive_car_position, rotation=Rotator(yaw=offensive_car_yaw, pitch=0, roll=0), velocity=offensive_car_velocity,
+                        angular_velocity=Vector3(0, 0, 0)))
+        self.ball_state = BallState(Physics(location=ball_position, velocity=ball_velocity))
+        
+        # Flip X position, velocity, and yaw randomly 50% of the time
+        self.__randomly_mirror_offense_x()
 
     def __setup_shadow_defense(self, distance_from_offensive_car):
         '''

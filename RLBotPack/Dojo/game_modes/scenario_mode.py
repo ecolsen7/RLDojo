@@ -118,7 +118,8 @@ class ScenarioMode(BaseGameMode):
             OffensiveMode.PASS,
             OffensiveMode.BACKWALL_BOUNCE,
             OffensiveMode.CORNER,
-            OffensiveMode.SIDE_BACKBOARD_PASS
+            OffensiveMode.SIDE_BACKBOARD_PASS,
+            OffensiveMode.OVER_SHOULDER
         ]
         self.game_state.offensive_mode = np.random.choice(valid_offensive_modes)
     
