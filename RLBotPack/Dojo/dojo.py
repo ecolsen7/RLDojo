@@ -105,7 +105,29 @@ class Dojo(BaseScript):
         """Set up all menu systems"""
         # Main menu
         self.menu_renderer = MenuRenderer(self.game_interface.renderer)
-        self.menu_renderer.add_element(UIElement('Main Menu', header=True))
+        
+        # Race mode menu
+        self.race_mode_menu = MenuRenderer(self.game_interface.renderer)
+        self.menu_renderer.add_element(UIElement('Premade Modes', header=True))
+
+        self.race_mode_menu.add_element(UIElement('Number of Trials', header=True))
+        for option in DEFAULT_TRIAL_OPTIONS:
+            self.race_mode_menu.add_element(
+                UIElement(str(option), function=self._set_race_mode, function_args=option)
+            )
+        self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
+        
+        # Free goal mode menu
+        self.free_goal_mode_menu = MenuRenderer(self.game_interface.renderer)
+        self.free_goal_mode_menu.add_element(UIElement('Number of Trials', header=True))
+        for option in DEFAULT_TRIAL_OPTIONS:
+            self.free_goal_mode_menu.add_element(
+                UIElement(str(option), function=self._set_free_goal_mode, function_args=option)
+            )
+        self.menu_renderer.add_element(UIElement('Free Goal Mode', submenu=self.free_goal_mode_menu))
+    
+        self.menu_renderer.add_element(UIElement('Other Options', header=True))
+
         self.menu_renderer.add_element(UIElement('Reset Score', function=self._clear_score))
         self.menu_renderer.add_element(UIElement('Toggle Mirror', function=self._toggle_mirror))
         self.menu_renderer.add_element(UIElement('Freeze Scenario', function=self._toggle_freeze_scenario))
@@ -126,25 +148,6 @@ class Dojo(BaseScript):
                 column=1
             )
         self.menu_renderer.add_element(UIElement('Select Preset Mode', submenu=self.preset_mode_menu))
-        
-        # Race mode menu
-        self.race_mode_menu = MenuRenderer(self.game_interface.renderer)
-        self.race_mode_menu.add_element(UIElement('Number of Trials', header=True))
-        for option in DEFAULT_TRIAL_OPTIONS:
-            self.race_mode_menu.add_element(
-                UIElement(str(option), function=self._set_race_mode, function_args=option)
-            )
-        self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
-        
-        # Free goal mode menu
-        self.free_goal_mode_menu = MenuRenderer(self.game_interface.renderer)
-        self.free_goal_mode_menu.add_element(UIElement('Number of Trials', header=True))
-        for option in DEFAULT_TRIAL_OPTIONS:
-            self.free_goal_mode_menu.add_element(
-                UIElement(str(option), function=self._set_free_goal_mode, function_args=option)
-            )
-        self.menu_renderer.add_element(UIElement('Free Goal Mode', submenu=self.free_goal_mode_menu))
-    
     def _register_keyboard_callbacks(self):
         """Register all keyboard input callbacks"""
         # Menu callbacks
