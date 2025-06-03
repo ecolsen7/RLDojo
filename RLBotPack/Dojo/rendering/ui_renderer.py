@@ -3,7 +3,8 @@ from state.game_state import DojoGameState, GymMode, ScenarioPhase, CUSTOM_MODES
 from config.constants import (
     SCORE_BOX_START_X, SCORE_BOX_START_Y, SCORE_BOX_WIDTH, SCORE_BOX_HEIGHT,
     CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, CUSTOM_MODE_MENU_WIDTH, CUSTOM_MODE_MENU_HEIGHT,
-    CONTROLS_MENU_WIDTH, CONTROLS_MENU_HEIGHT
+    CONTROLS_MENU_WIDTH, CONTROLS_MENU_HEIGHT, 
+    PROGRESS_BAR_WIDTH, PROGRESS_BAR_HEIGHT, PROGRESS_BAR_START_X, PROGRESS_BAR_START_Y
 )
 import utils
 
@@ -36,13 +37,16 @@ class UIRenderer:
             scores = f"Completed: {self.game_state.human_score}"
             total_score = f"Out of: {self.game_state.num_trials}"
             time_since_start = f"Time: {minutes}:{seconds_str}"
-            if self.game_state.race_mode_previous_record:
-                prev_minutes = int(self.game_state.race_mode_previous_record // 60)
-                prev_seconds = int(self.game_state.race_mode_previous_record % 60)
+            previous_record_data = self.game_state.get_previous_record()
+            if previous_record_data:
+                prev_minutes = int(previous_record_data // 60)
+                prev_seconds = int(previous_record_data % 60)
                 previous_record = f"Previous Record: {prev_minutes}:{prev_seconds:02d}"
         
         # Render UI elements
         self.renderer.begin_rendering()
+        
+        self.render_progress_bar()
         
         # Main instruction text
         self.renderer.draw_string_2d(20, 50, 1, 1, text, self.renderer.yellow())
@@ -73,7 +77,36 @@ class UIRenderer:
         )
         
         self.renderer.end_rendering()
-    
+
+    def render_progress_bar(self):
+        """Render the progress bar"""
+        
+        if self.game_state.gym_mode != GymMode.RACE:
+            return
+
+        # Calculate progress bar position
+        progress_bar_x = PROGRESS_BAR_START_X
+        progress_bar_y = PROGRESS_BAR_START_Y
+
+        # Render progress bar background
+        self.renderer.draw_rect_2d(
+            progress_bar_x, progress_bar_y,
+            PROGRESS_BAR_WIDTH, PROGRESS_BAR_HEIGHT,
+            True, self.renderer.white()
+        )
+        
+        # Calculate progress bar fill
+        progress = self.game_state.human_score / self.game_state.num_trials
+        fill_width = PROGRESS_BAR_WIDTH * progress
+
+        # Render progress bar fill
+        self.renderer.draw_rect_2d(
+            progress_bar_x, progress_bar_y,
+            int(fill_width), PROGRESS_BAR_HEIGHT,
+            True, self.renderer.blue()
+        )
+        
+
     def render_custom_sandbox_ui(self, rlbot_game_state):
         """Render the custom sandbox UI"""
         if self.game_state.game_phase not in CUSTOM_MODES:

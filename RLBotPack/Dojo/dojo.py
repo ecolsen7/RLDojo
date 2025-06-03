@@ -11,9 +11,8 @@ from menu import MenuRenderer, UIElement
 from scenario import Scenario, OffensiveMode, DefensiveMode
 from config.constants import DEFAULT_TRIAL_OPTIONS, DEFAULT_NUM_TRIALS, DEFAULT_PAUSE_TIME
 import modifier
-import records
 import utils
-
+from record.race import RaceRecord, RaceRecords, get_race_records
 
 class Dojo(BaseScript):
     """
@@ -226,7 +225,7 @@ class Dojo(BaseScript):
         self.game_state.gym_mode = GymMode.RACE
         self.game_state.game_phase = RacePhase.INIT
         self.game_state.num_trials = trials
-        self.game_state.race_mode_previous_record = records.get_race_record(trials)
+        self.game_state.race_mode_records = get_race_records()
         
         # Switch to race mode
         if self.current_mode:
