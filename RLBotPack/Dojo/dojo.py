@@ -112,6 +112,10 @@ class Dojo(BaseScript):
         self.menu_renderer.add_element(UIElement('Freeze Scenario', function=self._toggle_freeze_scenario))
         self.menu_renderer.add_element(UIElement('Create Custom Mode', function=self._create_custom_mode))
         
+        # Playlist menu
+        self.playlist_menu = self.create_playlist_menu()
+        self.menu_renderer.add_element(UIElement('Select Playlist', submenu=self.playlist_menu))
+        
         # Preset mode menu
         self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=2)
         self.preset_mode_menu.add_element(UIElement('Offensive Mode', header=True), column=0)
@@ -178,7 +182,7 @@ class Dojo(BaseScript):
                 self.ui_renderer.render_custom_sandbox_ui(rlbot_game_state)
             
             # Render menu if in menu mode
-            if self.game_state.game_phase == ScenarioPhase.MENU:
+            if self.game_state.game_phase in [ScenarioPhase.MENU, RacePhase.MENU]:
                 self.menu_renderer.render_menu()
     
     # Menu action handlers
@@ -384,6 +388,35 @@ class Dojo(BaseScript):
             self.game_state.game_phase = ScenarioPhase.CUSTOM_OFFENSE
         elif self.game_state.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
             self.game_state.game_phase = ScenarioPhase.CUSTOM_BALL
+
+    def create_playlist_menu(self):
+        """Create playlist selection submenu"""
+        playlist_menu = MenuRenderer(self.game_interface.renderer, columns=1)
+        playlist_menu.add_element(UIElement("Select Playlist", header=True))
+        
+        # Add each playlist as a menu option
+        for playlist_name in self.scenario_mode.playlist_registry.list_playlists():
+            playlist = self.scenario_mode.playlist_registry.get_playlist(playlist_name)
+            playlist_menu.add_element(UIElement(
+                f"{playlist.name}",
+                function=self.set_playlist,
+                function_args=playlist_name
+            ))
+        
+        return playlist_menu
+    
+    def set_playlist(self, playlist_name):
+        """Set the active playlist and return to game"""
+        print(f"Setting playlist: {playlist_name}")
+        self.scenario_mode.set_playlist(playlist_name)
+        self.game_state.gym_mode = GymMode.SCENARIO
+        self.game_state.game_phase = ScenarioPhase.SETUP
+        
+        # Switch to scenario mode if not already
+        if self.current_mode != self.scenario_mode:
+            if self.current_mode:
+                self.current_mode.cleanup()
+            self.current_mode = self.scenario_mode
 
 
 # Entry point

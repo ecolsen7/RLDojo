@@ -5,6 +5,7 @@ from .base_mode import BaseGameMode
 from state.game_state import ScenarioPhase, CarIndex, CUSTOM_MODES
 from scenario import Scenario, OffensiveMode, DefensiveMode
 from config.constants import BACK_WALL, GOAL_DETECTION_THRESHOLD, BALL_GROUND_THRESHOLD, FREE_GOAL_TIMEOUT
+from playlist import PlaylistRegistry, PlayerRole
 import utils
 
 
@@ -15,6 +16,14 @@ class ScenarioMode(BaseGameMode):
         super().__init__(game_state, game_interface)
         self.rlbot_game_state = None
         self.prev_time = 0
+        self.playlist_registry = PlaylistRegistry()
+        self.current_playlist = None
+    
+    def set_playlist(self, playlist_name):
+        """Set the active playlist"""
+        self.current_playlist = self.playlist_registry.get_playlist(playlist_name)
+        if self.current_playlist:
+            self.game_state.timeout = self.current_playlist.settings.timeout
     
     def initialize(self):
         """Initialize scenario mode"""
@@ -23,7 +32,7 @@ class ScenarioMode(BaseGameMode):
         self.game_state.game_phase = ScenarioPhase.SETUP
         
         if self.game_state.free_goal_mode:
-            self.game_state.timeout = FREE_GOAL_TIMEOUT
+            self.set_playlist("Free Goal")
             self.game_state.rule_zero_mode = False
     
     def cleanup(self):
@@ -60,7 +69,9 @@ class ScenarioMode(BaseGameMode):
     
     def _handle_setup_phase(self, packet):
         """Handle setup phase - create new scenario"""
-        if self.game_state.free_goal_mode:
+        if self.current_playlist:
+            self._setup_playlist_mode()
+        elif self.game_state.free_goal_mode:
             self._setup_free_goal_mode()
         
         self._set_next_game_state()
@@ -123,13 +134,33 @@ class ScenarioMode(BaseGameMode):
         ]
         self.game_state.offensive_mode = np.random.choice(valid_offensive_modes)
     
+    def _setup_playlist_mode(self):
+        """Setup scenario based on current playlist"""
+        scenario_config = self.current_playlist.get_next_scenario()
+        if scenario_config:
+            self.game_state.offensive_mode = scenario_config.offensive_mode
+            self.game_state.defensive_mode = scenario_config.defensive_mode
+            
+            # Set mirrored based on player role
+            # If player is on defense, mirror so they defend the correct goal
+            # Default "non-mirrored" is defense
+            self.game_state.mirrored = (scenario_config.player_role == PlayerRole.OFFENSE)
+    
     def _set_next_game_state(self):
         """Create and set the next scenario game state"""
         if not self.game_state.freeze_scenario:
             print(f"Setting next game state: {self.game_state.offensive_mode}, {self.game_state.defensive_mode}")
-            scenario = Scenario(self.game_state.offensive_mode, self.game_state.defensive_mode)
+            
+            # Get boost range from current playlist if available
+            boost_range = None
+            if self.current_playlist and self.current_playlist.settings.boost_range:
+                boost_range = self.current_playlist.settings.boost_range
+                print(f"Using playlist boost range: {boost_range}")
+            
+            scenario = Scenario(self.game_state.offensive_mode, self.game_state.defensive_mode, boost_range=boost_range)
             if self.game_state.mirrored:
                 scenario.Mirror()
+            
             self.game_state.scenario_history.append(scenario)
             self.game_state.freeze_scenario_index = len(self.game_state.scenario_history) - 1
         else:

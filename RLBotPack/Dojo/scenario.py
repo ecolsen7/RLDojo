@@ -32,7 +32,7 @@ class Scenario:
     Scenario represents all initial states of a game mode
     Comprised of a BallState and two CarStates (or more, to be added)
     '''
-    def __init__(self, offensive_mode=None, defensive_mode=None):
+    def __init__(self, offensive_mode=None, defensive_mode=None, boost_range=None):
         '''
         Create a new scenario based on the game mode
         '''
@@ -87,9 +87,14 @@ class Scenario:
         if defensive_mode is not None and offensive_mode is not None:
             utils.sanity_check_objects([self.offensive_car_state, self.defensive_car_state, self.ball_state])
 
-        # Randomize boost level of each car
-        self.offensive_car_state.boost_amount = utils.random_between(12, 100)
-        self.defensive_car_state.boost_amount = utils.random_between(12, 100)
+        # Randomize boost level of each car - use boost_range if provided, otherwise default
+        if boost_range:
+            min_boost, max_boost = boost_range
+            self.offensive_car_state.boost_amount = utils.random_between(min_boost, max_boost)
+            self.defensive_car_state.boost_amount = utils.random_between(min_boost, max_boost)
+        else:
+            self.offensive_car_state.boost_amount = utils.random_between(12, 100)
+            self.defensive_car_state.boost_amount = utils.random_between(12, 100)
 
     @staticmethod
     def FromGameState(game_state):
