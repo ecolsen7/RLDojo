@@ -174,21 +174,17 @@ class ScenarioMode(BaseGameMode):
         ball_y = packet.game_ball.physics.location.y
         
         
-        # Check if ball is in orange goal (positive Y)
+        # Check if ball is in blue goal (back wall is blue)
+        # Bot scored
         if ball_y < BACK_WALL - GOAL_DETECTION_THRESHOLD:
-            if self.game_state.mirrored:
-                self.game_state.bot_score += 1
-            else:
-                self.game_state.human_score += 1
+            self.game_state.bot_score += 1
             self.game_state.game_phase = ScenarioPhase.SETUP
             return True
         
-        # Check if ball is in blue goal (negative Y)
+        # Check if ball is in orange goal (negate back wall)
+        # Human scored
         elif ball_y > (-BACK_WALL + GOAL_DETECTION_THRESHOLD):
-            if not self.game_state.mirrored:
-                self.game_state.bot_score += 1
-            else:
-                self.game_state.human_score += 1
+            self.game_state.human_score += 1
             self.game_state.game_phase = ScenarioPhase.SETUP
             return True
         

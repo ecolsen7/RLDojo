@@ -3,7 +3,10 @@ from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics,
 
 SIDE_WALL=4096
 # From perspective of default scenario - blue team defending
-BACK_WALL=-5120
+BLUE_WALL=-5120
+ORANGE_WALL=5120
+
+BACK_WALL=BLUE_WALL
 
 def get_velocity_from_yaw(yaw, min_velocity, max_velocity):
     # yaw is in radians, use this to get the ratio of x/y velocity
