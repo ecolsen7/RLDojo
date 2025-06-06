@@ -8,3 +8,5 @@ pip
 
 matplotlib
 rlbot
+pydantic==2.11.5
+pydantic_core==2.33.2

@@ -5,7 +5,7 @@ from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics,
 from .base_mode import BaseGameMode
 from state.game_state import RacePhase, CarIndex
 import race
-import records
+from record.race import RaceRecord, RaceRecords, store_race_records
 
 
 class RaceMode(BaseGameMode):
@@ -112,11 +112,12 @@ class RaceMode(BaseGameMode):
             total_time = self.game_state.cur_time - self.game_state.started_time
             print(f"Race completed in {total_time} seconds")
             
-            record = records.RaceRecord(
+            record = RaceRecord(
                 number_of_trials=self.game_state.num_trials,
-                total_time_to_finish=float(total_time)
+                time_to_finish=float(total_time)
             )
-            records.update_race_record_if_faster(record)
+            self.game_state.race_mode_records.set_record(record)
+            store_race_records(self.game_state.race_mode_records)
         
         time.sleep(10)
         self.game_state.game_phase = RacePhase.INIT
