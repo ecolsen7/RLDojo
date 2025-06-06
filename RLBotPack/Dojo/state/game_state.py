@@ -2,6 +2,7 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import List, Optional
 from scenario import Scenario, OffensiveMode, DefensiveMode
+from record.race import RaceRecord, RaceRecords
 
 
 class CustomUpDownSelection(Enum):
@@ -89,7 +90,7 @@ class DojoGameState:
     free_goal_mode: bool = False
     rule_zero_mode: bool = False
     num_trials: int = 100
-    race_mode_previous_record: Optional[float] = None
+    race_mode_records: Optional[RaceRecords] = None
     
     # Internal state tracking
     scoreDiff_prev: int = 0
@@ -126,3 +127,8 @@ class DojoGameState:
         minutes = int(total_seconds // 60)
         seconds = int(total_seconds % 60)
         return minutes, seconds 
+
+    def get_previous_record(self) -> Optional[float]:
+        if self.race_mode_records is None:
+            return None
+        return self.race_mode_records.get_previous_record(self.num_trials)

@@ -36,9 +36,10 @@ class UIRenderer:
             scores = f"Completed: {self.game_state.human_score}"
             total_score = f"Out of: {self.game_state.num_trials}"
             time_since_start = f"Time: {minutes}:{seconds_str}"
-            if self.game_state.race_mode_previous_record:
-                prev_minutes = int(self.game_state.race_mode_previous_record // 60)
-                prev_seconds = int(self.game_state.race_mode_previous_record % 60)
+            previous_record_data = self.game_state.get_previous_record()
+            if previous_record_data:
+                prev_minutes = int(previous_record_data // 60)
+                prev_seconds = int(previous_record_data % 60)
                 previous_record = f"Previous Record: {prev_minutes}:{prev_seconds:02d}"
         
         # Render UI elements
