@@ -24,6 +24,7 @@ class ScenarioMode(BaseGameMode):
         self.current_playlist = self.playlist_registry.get_playlist(playlist_name)
         if self.current_playlist:
             self.game_state.timeout = self.current_playlist.settings.timeout
+            self.game_state.rule_zero_mode = self.current_playlist.settings.rule_zero
     
     def initialize(self):
         """Initialize scenario mode"""

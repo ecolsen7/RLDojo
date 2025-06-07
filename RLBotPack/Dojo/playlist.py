@@ -6,7 +6,7 @@ around specific themes or training goals. Playlists can specify:
 
 - Combinations of offensive and defensive modes
 - Player role (offense or defense)
-- Custom settings like timeout, shuffle, and boost ranges
+- Custom settings like timeout, shuffle, boost ranges, and rule zero
 - Weighted scenario selection
 
 Boost Range Feature:
@@ -14,6 +14,12 @@ Boost Range Feature:
   random boost generation (12-100) that happens in scenario creation
 - This allows playlists to focus on specific boost management scenarios
 - Examples: Low boost for finishing practice, high boost for mechanical plays
+
+Rule Zero Feature:
+- If a playlist specifies rule_zero=True, scenarios won't end at timeout until
+  the ball touches the ground, similar to Rocket League's "rule zero"
+- This creates more realistic game-ending conditions and allows plays to finish naturally
+- Useful for training scenarios where timing and ball control are critical
 """
 
 from enum import Enum
@@ -32,11 +38,12 @@ class ScenarioConfig:
         self.weight = weight
 
 class PlaylistSettings:
-    def __init__(self, timeout=7.0, shuffle=True, loop=True, boost_range=None):
+    def __init__(self, timeout=7.0, shuffle=True, loop=True, boost_range=None, rule_zero=False):
         self.timeout = timeout
         self.shuffle = shuffle
         self.loop = loop
         self.boost_range = boost_range  # Tuple (min_boost, max_boost) or None for default (12, 100)
+        self.rule_zero = rule_zero  # If True, scenarios don't end at timeout until ball touches ground
 
 class Playlist:
     def __init__(self, name, description, scenarios=None, settings=None, 
@@ -98,7 +105,7 @@ class PlaylistRegistry:
                 ScenarioConfig(OffensiveMode.CORNER, DefensiveMode.RECOVERING, PlayerRole.OFFENSE),
                 ScenarioConfig(OffensiveMode.SIDE_BACKBOARD_PASS, DefensiveMode.RECOVERING, PlayerRole.OFFENSE),
             ],
-            settings=PlaylistSettings(boost_range=(20, 60))  # Lower boost for finishing practice
+            settings=PlaylistSettings(boost_range=(20, 60), rule_zero=True)  # Lower boost for finishing practice, rule zero for natural endings
         )
         
         # Shadow Defense (Defense focus) - Variable boost for realistic defense
@@ -146,7 +153,29 @@ class PlaylistRegistry:
             settings=PlaylistSettings(timeout=10.0, shuffle=True, boost_range=(74, 100))  # High boost for mechanics
         )
         
+        # Front Intercept Defense - Practice intercepting offensive plays
+        front_intercept_defense = Playlist(
+            "Front Intercept Defense",
+            "Practice intercepting and challenging offensive plays from an advanced defensive position",
+            offensive_modes=[
+                OffensiveMode.POSSESSION,
+                OffensiveMode.BREAKOUT,
+                OffensiveMode.CARRY,
+                OffensiveMode.BACKPASS,
+                OffensiveMode.CORNER,
+                OffensiveMode.SIDEWALL,
+                OffensiveMode.SIDEWALL_BREAKOUT,
+                OffensiveMode.BACK_CORNER_BREAKOUT,
+            ],
+            defensive_modes=[
+                DefensiveMode.FRONT_INTERCEPT
+            ],
+            player_role=PlayerRole.DEFENSE,
+            settings=PlaylistSettings(timeout=8.0, shuffle=True, boost_range=(40, 90), rule_zero=True)  # Rule zero for realistic challenge timing
+        )
+        
         self.register_playlist(free_goal)
         self.register_playlist(shadow_defense)
         self.register_playlist(ones_mixed)
-        self.register_playlist(mechanical) 
+        self.register_playlist(mechanical)
+        self.register_playlist(front_intercept_defense) 
