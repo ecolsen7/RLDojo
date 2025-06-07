@@ -26,6 +26,7 @@ class DefensiveMode(Enum):
     NET = 2
     CORNER = 3
     RECOVERING = 4
+    FRONT_INTERCEPT = 5
 
 class Scenario:
     '''
@@ -82,6 +83,8 @@ class Scenario:
                 self.__setup_corner_defense()
             case DefensiveMode.RECOVERING:
                 self.__setup_recovering_defense()
+            case DefensiveMode.FRONT_INTERCEPT:
+                self.__setup_front_intercept_defense()
 
 
         if defensive_mode is not None and offensive_mode is not None:
@@ -764,6 +767,37 @@ class Scenario:
 
         defensive_car_position = Vector3(defensive_car_x_location, defensive_car_y_location, defensive_car_z_location)
 
+        self.defensive_car_state = CarState(boost_amount=100, physics=Physics(location=defensive_car_position, rotation=Rotator(yaw=defensive_car_yaw, pitch=0, roll=0), velocity=defensive_car_velocity,
+                        angular_velocity=Vector3(0, 0, 0)))
+
+    def __setup_front_intercept_defense(self):
+        """
+        Setup a front intercept defense scenario where:
+        - Defensive car starts 2000 Y units in front of the offensive car
+        - ± 500 units X away from the offensive car
+        - Facing the offensive car
+        """
+        # Calculate defensive car position relative to offensive car
+        offensive_car_x = self.offensive_car_state.physics.location.x
+        offensive_car_y = self.offensive_car_state.physics.location.y
+        
+        # Position defensive car 2000 units in front (toward the goal) of offensive car
+        defensive_car_y = offensive_car_y - 2000
+        
+        # Position defensive car ± 500 units X away from offensive car
+        x_offset = utils.random_between(-500, 500)
+        defensive_car_x = offensive_car_x + x_offset
+        
+        defensive_car_position = Vector3(defensive_car_x, defensive_car_y, 17)
+        
+        # Calculate yaw to face the offensive car
+        delta_x = offensive_car_x - defensive_car_x
+        delta_y = offensive_car_y - defensive_car_y
+        defensive_car_yaw = np.arctan2(delta_y, delta_x)
+        
+        # Set velocity toward the offensive car with some randomization
+        defensive_car_velocity = utils.get_velocity_from_yaw(defensive_car_yaw, min_velocity=800, max_velocity=1200)
+        
         self.defensive_car_state = CarState(boost_amount=100, physics=Physics(location=defensive_car_position, rotation=Rotator(yaw=defensive_car_yaw, pitch=0, roll=0), velocity=defensive_car_velocity,
                         angular_velocity=Vector3(0, 0, 0)))
 
