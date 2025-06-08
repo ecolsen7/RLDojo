@@ -87,7 +87,6 @@ class DojoGameState:
     
     # Game settings
     disable_goal_reset: bool = False
-    free_goal_mode: bool = False
     rule_zero_mode: bool = False
     num_trials: int = 100
     race_mode_records: Optional[RaceRecords] = None

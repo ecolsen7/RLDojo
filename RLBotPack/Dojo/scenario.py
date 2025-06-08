@@ -782,7 +782,7 @@ class Scenario:
         offensive_car_y = self.offensive_car_state.physics.location.y
         
         # Position defensive car 2000 units in front (toward the goal) of offensive car
-        defensive_car_y = offensive_car_y - 2000
+        defensive_car_y = offensive_car_y - 3000
         
         # Position defensive car ± 500 units X away from offensive car
         x_offset = utils.random_between(-500, 500)

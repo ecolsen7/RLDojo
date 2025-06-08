@@ -162,7 +162,6 @@ class PlaylistRegistry:
                 OffensiveMode.BREAKOUT,
                 OffensiveMode.CARRY,
                 OffensiveMode.BACKPASS,
-                OffensiveMode.CORNER,
                 OffensiveMode.SIDEWALL,
                 OffensiveMode.SIDEWALL_BREAKOUT,
                 OffensiveMode.BACK_CORNER_BREAKOUT,
