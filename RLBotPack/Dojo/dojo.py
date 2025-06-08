@@ -42,7 +42,6 @@ class Dojo(BaseScript):
         self.menu_renderer = None
         self.preset_mode_menu = None
         self.race_mode_menu = None
-        self.free_goal_mode_menu = None
         
         # Internal state
         self.rlbot_game_state = None
@@ -139,15 +138,6 @@ class Dojo(BaseScript):
                 UIElement(str(option), function=self._set_race_mode, function_args=option)
             )
         self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
-        
-        # Free goal mode menu
-        self.free_goal_mode_menu = MenuRenderer(self.game_interface.renderer)
-        self.free_goal_mode_menu.add_element(UIElement('Number of Trials', header=True))
-        for option in DEFAULT_TRIAL_OPTIONS:
-            self.free_goal_mode_menu.add_element(
-                UIElement(str(option), function=self._set_free_goal_mode, function_args=option)
-            )
-        self.menu_renderer.add_element(UIElement('Free Goal Mode', submenu=self.free_goal_mode_menu))
     
     def _register_keyboard_callbacks(self):
         """Register all keyboard input callbacks"""

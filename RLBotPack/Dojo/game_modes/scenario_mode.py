@@ -72,8 +72,6 @@ class ScenarioMode(BaseGameMode):
         """Handle setup phase - create new scenario"""
         if self.current_playlist:
             self._setup_playlist_mode()
-        elif self.game_state.free_goal_mode:
-            self._setup_free_goal_mode()
         
         self._set_next_game_state()
         self.prev_time = self.game_state.cur_time
@@ -120,20 +118,6 @@ class ScenarioMode(BaseGameMode):
         """Handle custom sandbox phases"""
         if self.rlbot_game_state:
             self.set_game_state(self.rlbot_game_state)
-    
-    def _setup_free_goal_mode(self):
-        """Configure settings for free goal mode"""
-        self.game_state.defensive_mode = DefensiveMode.RECOVERING
-        valid_offensive_modes = [
-            OffensiveMode.BACKPASS,
-            OffensiveMode.SIDEWALL_BREAKOUT,
-            OffensiveMode.PASS,
-            OffensiveMode.BACKWALL_BOUNCE,
-            OffensiveMode.CORNER,
-            OffensiveMode.SIDE_BACKBOARD_PASS,
-            OffensiveMode.OVER_SHOULDER
-        ]
-        self.game_state.offensive_mode = np.random.choice(valid_offensive_modes)
     
     def _setup_playlist_mode(self):
         """Setup scenario based on current playlist"""
