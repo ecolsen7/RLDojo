@@ -13,6 +13,7 @@ from config.constants import DEFAULT_TRIAL_OPTIONS, DEFAULT_NUM_TRIALS, DEFAULT_
 import modifier
 import utils
 from record.race import RaceRecord, RaceRecords, get_race_records
+from custom_playlist import CustomPlaylistManager
 
 class Dojo(BaseScript):
     """
@@ -42,6 +43,10 @@ class Dojo(BaseScript):
         self.menu_renderer = None
         self.preset_mode_menu = None
         self.race_mode_menu = None
+        self.playlist_menu = None
+        
+        # Custom playlist manager
+        self.custom_playlist_manager = None
         
         # Internal state
         self.rlbot_game_state = None
@@ -86,10 +91,16 @@ class Dojo(BaseScript):
         # Initialize UI renderer
         self.ui_renderer = UIRenderer(self.game_interface.renderer, self.game_state)
         
+        # Initialize custom playlist manager
+        self.custom_playlist_manager = CustomPlaylistManager(self.game_interface.renderer)
+        
         # Initialize game modes
         self.scenario_mode = ScenarioMode(self.game_state, self.game_interface)
         self.race_mode = RaceMode(self.game_state, self.game_interface)
         self.current_mode = self.scenario_mode
+        
+        # Set up custom playlist manager with scenario mode
+        self.scenario_mode.playlist_registry.set_custom_playlist_manager(self.custom_playlist_manager)
         
         # Initialize menu system
         self._setup_menus()
@@ -113,6 +124,11 @@ class Dojo(BaseScript):
         # Playlist menu
         self.playlist_menu = self.create_playlist_menu()
         self.menu_renderer.add_element(UIElement('Select Playlist', submenu=self.playlist_menu))
+        
+        # Custom playlist creation menu
+        if self.custom_playlist_manager:
+            custom_playlist_menu = self.custom_playlist_manager.create_playlist_creation_menu()
+            self.menu_renderer.add_element(UIElement('Create Custom Playlist', submenu=custom_playlist_menu))
         
         # Preset mode menu
         self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=2)
@@ -380,6 +396,10 @@ class Dojo(BaseScript):
 
     def create_playlist_menu(self):
         """Create playlist selection submenu"""
+        # Refresh custom playlists to include any newly created ones
+        if hasattr(self.scenario_mode, 'playlist_registry'):
+            self.scenario_mode.playlist_registry.refresh_custom_playlists()
+        
         playlist_menu = MenuRenderer(self.game_interface.renderer, columns=1)
         playlist_menu.add_element(UIElement("Select Playlist", header=True))
         
