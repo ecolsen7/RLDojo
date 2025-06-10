@@ -82,7 +82,20 @@ class Playlist:
 class PlaylistRegistry:
     def __init__(self):
         self.playlists = {}
+        self.custom_playlist_manager = None
         self._register_default_playlists()
+    
+    def set_custom_playlist_manager(self, manager):
+        """Set the custom playlist manager to load custom playlists"""
+        self.custom_playlist_manager = manager
+        self._load_custom_playlists()
+    
+    def _load_custom_playlists(self):
+        """Load custom playlists from the manager"""
+        if self.custom_playlist_manager:
+            custom_playlists = self.custom_playlist_manager.get_custom_playlists()
+            for name, playlist in custom_playlists.items():
+                self.playlists[name] = playlist
     
     def register_playlist(self, playlist):
         self.playlists[playlist.name] = playlist
@@ -92,6 +105,19 @@ class PlaylistRegistry:
     
     def list_playlists(self):
         return list(self.playlists.keys())
+    
+    def refresh_custom_playlists(self):
+        """Refresh custom playlists from disk"""
+        if self.custom_playlist_manager:
+            # Remove existing custom playlists
+            custom_names = list(self.custom_playlist_manager.get_custom_playlists().keys())
+            for name in custom_names:
+                if name in self.playlists:
+                    del self.playlists[name]
+            
+            # Reload custom playlists
+            self.custom_playlist_manager.load_custom_playlists()
+            self._load_custom_playlists()
     
     def _register_default_playlists(self):
         # Free Goal (Offense focus) - Low boost for finishing practice
