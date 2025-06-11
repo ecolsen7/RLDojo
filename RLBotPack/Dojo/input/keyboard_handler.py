@@ -23,7 +23,7 @@ class KeyboardHandler:
         keyboard.add_hotkey('down', self._down_handler)
         keyboard.add_hotkey('up', self._up_handler)
         keyboard.add_hotkey('n', self._next_custom_step)
-        keyboard.add_hotkey('b', self._prev_custom_step)
+        keyboard.add_hotkey('b', self._back_handler)
         keyboard.add_hotkey('x', self._custom_select_x)
         keyboard.add_hotkey('y', self._custom_select_y)
         keyboard.add_hotkey('z', self._custom_select_z)
@@ -84,10 +84,14 @@ class KeyboardHandler:
         if 'next_custom_step' in self.callbacks:
             self.callbacks['next_custom_step']()
     
-    def _prev_custom_step(self):
-        """Handle previous custom step"""
-        if 'prev_custom_step' in self.callbacks:
-            self.callbacks['prev_custom_step']()
+    def _back_handler(self):
+        """Handle back key - either for menu navigation or custom mode"""
+        if self.game_state.is_in_custom_mode():
+            if 'prev_custom_step' in self.callbacks:
+                self.callbacks['prev_custom_step']()
+        else:
+            if 'menu_back' in self.callbacks:
+                self.callbacks['menu_back']()
     
     def _custom_select_x(self):
         """Select X coordinate for custom mode"""

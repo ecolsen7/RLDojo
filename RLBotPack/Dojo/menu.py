@@ -21,13 +21,8 @@ class UIElement():
         self.submenu = submenu
         self.header = header
 
-        # If submenu exists, add a back button to the submenu
-        if submenu:
-            self.submenu.add_element(UIElement('Back', function=self.back))
-
     def back(self):
         self.entered = False
-        
 
 class MenuRenderer():
     def __init__(self, renderer, columns=1):
@@ -158,7 +153,6 @@ class MenuRenderer():
                 element.selected = False
                 break
 
-
     def enter_element(self):
         # If an element is currently entered, call its enter_element function
         for element in self.elements[self.active_column]:
@@ -176,6 +170,16 @@ class MenuRenderer():
                     else:
                         element.function()
                 break
+
+    def handle_back_key(self):
+        """Handle the 'b' key press to go back in menus"""
+        # Check if any element in any column is entered
+        for column in range(self.columns):
+            for element in self.elements[column]:
+                if element.entered:
+                    element.back()
+                    return True
+        return False
 
     def render_menu(self):
         # If no elements are selected the first time we render the menu, select the first non-header element
@@ -250,5 +254,11 @@ class MenuRenderer():
                     indicator_x = print_x + COLUMN_WIDTH - 30
                     indicator_y = MENU_START_Y + MENU_HEIGHT - 30
                     self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↓", self.renderer.white())
+
+        # Draw the back instruction at the bottom of the menu
+        back_text = "Press 'b' to go back"
+        back_x = MENU_START_X + (MENU_WIDTH - len(back_text) * units_x_per_char) // 2
+        back_y = MENU_START_Y + MENU_HEIGHT - 30
+        self.renderer.draw_string_2d(back_x, back_y, 1, 1, back_text, self.renderer.white())
         
         self.renderer.end_rendering()
