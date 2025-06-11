@@ -115,6 +115,7 @@ class Dojo(BaseScript):
         """Set up all menu systems"""
         # Main menu
         self.menu_renderer = MenuRenderer(self.game_interface.renderer)
+        self.menu_renderer.is_root = True
         self.menu_renderer.add_element(UIElement('Main Menu', header=True))
         self.menu_renderer.add_element(UIElement('Reset Score', function=self._clear_score))
         self.menu_renderer.add_element(UIElement('Toggle Mirror', function=self._toggle_mirror))

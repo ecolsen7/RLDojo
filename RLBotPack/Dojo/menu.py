@@ -33,11 +33,10 @@ class MenuRenderer():
         self.active_column = 0
         # Add scroll offset for each column to handle long lists
         self.scroll_offset = [0 for _ in range(columns)]
+        self.is_root = False
 
     def add_element(self, element, column=0):
         self.elements[column].append(element)
-        # if column == 0 and len(self.elements[column]) == 1:
-        #     self.elements[column][0].selected = True
 
     def _get_max_visible_elements(self):
         """Calculate maximum number of elements that can fit in the menu"""
@@ -113,7 +112,6 @@ class MenuRenderer():
         for column in range(self.columns):
             for element in self.elements[column]:
                 if element.entered:
-                    print("moving to next column in submenu: ", element)
                     element.submenu.move_to_next_column()
                     return
         prev_column = self.active_column
@@ -255,10 +253,9 @@ class MenuRenderer():
                     indicator_y = MENU_START_Y + MENU_HEIGHT - 30
                     self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↓", self.renderer.white())
 
-        # Draw the back instruction at the bottom of the menu
-        back_text = "Press 'b' to go back"
-        back_x = MENU_START_X + (MENU_WIDTH - len(back_text) * units_x_per_char) // 2
-        back_y = MENU_START_Y + MENU_HEIGHT - 30
-        self.renderer.draw_string_2d(back_x, back_y, 1, 1, back_text, self.renderer.white())
+        instruction_text = "Press 'b' to go back" if not self.is_root else "Press 'm' to exit menu"
+        instruction_x = MENU_START_X + (MENU_WIDTH - len(instruction_text) * units_x_per_char) // 2
+        instruction_y = MENU_START_Y + MENU_HEIGHT - 30
+        self.renderer.draw_string_2d(instruction_x, instruction_y, 1, 1, instruction_text, self.renderer.white())
         
         self.renderer.end_rendering()
