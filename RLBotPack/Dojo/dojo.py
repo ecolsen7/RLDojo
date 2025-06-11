@@ -5,7 +5,7 @@ from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics,
 # Import our new modular components
 from state.game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_MODES
 from game_modes import ScenarioMode, RaceMode
-from input import KeyboardHandler
+from keyboard_handler import KeyboardHandler
 from rendering import UIRenderer
 from menu import MenuRenderer, UIElement
 from scenario import Scenario, OffensiveMode, DefensiveMode
@@ -31,7 +31,7 @@ class Dojo(BaseScript):
         
         # Initialize core components
         self.game_state = DojoGameState()
-        self.keyboard_handler = KeyboardHandler(self.game_state)
+        self.keyboard_handler = None
         self.ui_renderer = None  # Will be initialized after renderer is available
         
         # Game modes
@@ -88,6 +88,7 @@ class Dojo(BaseScript):
     
     def _initialize_components(self):
         """Initialize all components that require the game interface"""
+        
         # Initialize UI renderer
         self.ui_renderer = UIRenderer(self.game_interface.renderer, self.game_state)
         
@@ -104,6 +105,9 @@ class Dojo(BaseScript):
         
         # Initialize menu system
         self._setup_menus()
+        
+         # Initialize keyboard handler
+        self.keyboard_handler = KeyboardHandler(self.game_state)
         
         # Register keyboard callbacks
         self._setup_keyboard_callbacks()
@@ -174,6 +178,9 @@ class Dojo(BaseScript):
         self.keyboard_handler.register_callback('custom_right', self._custom_right_handler)
         self.keyboard_handler.register_callback('next_custom_step', self._next_custom_step)
         self.keyboard_handler.register_callback('prev_custom_step', self._prev_custom_step)
+        
+        # Text input callbacks
+        self.keyboard_handler.register_callback('text_input', self.menu_renderer.handle_text_input)
     
     def _render_ui(self):
         """Render all UI elements"""

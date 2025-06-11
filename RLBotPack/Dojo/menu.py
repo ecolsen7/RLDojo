@@ -20,12 +20,12 @@ class UIElement():
         self.entered = False
         self.submenu = submenu
         self.header = header
-
+        
     def back(self):
         self.entered = False
 
 class MenuRenderer():
-    def __init__(self, renderer, columns=1):
+    def __init__(self, renderer, columns=1, text_input=False):
         self.renderer = renderer
         # Each column has its own list of elements
         self.elements = [[] for _ in range(columns)]
@@ -34,6 +34,8 @@ class MenuRenderer():
         # Add scroll offset for each column to handle long lists
         self.scroll_offset = [0 for _ in range(columns)]
         self.is_root = False
+        self.is_text_input_menu = text_input
+        self.text_input_value = None
 
     def add_element(self, element, column=0):
         self.elements[column].append(element)
@@ -178,6 +180,15 @@ class MenuRenderer():
                     element.back()
                     return True
         return False
+        
+    def is_in_text_input(self):
+        if self.is_text_input_menu:
+            return True
+        for column in range(self.columns):
+            for element in self.elements[column]:
+                if element.entered:
+                    return element.is_in_text_input()
+        return False
 
     def render_menu(self):
         # If no elements are selected the first time we render the menu, select the first non-header element
@@ -210,48 +221,52 @@ class MenuRenderer():
         print_y = MENU_START_Y + 10
         text_color = self.renderer.white()
 
-        # Then, render the menu
-        for column in range(self.columns):
-            print_x = MENU_START_X + COLUMN_WIDTH * column + 10
-            print_y = MENU_START_Y + 10
-            
-            # Calculate which elements to show based on scroll offset
-            start_index = self.scroll_offset[column]
-            end_index = min(start_index + max_visible_elements, len(self.elements[column]))
-            
-            # Render only visible elements
-            for i in range(start_index, end_index):
-                element = self.elements[column][i]
+        # Render the list of options, if this menu isn't a text input
+        if not self.is_text_input_menu:
+            for column in range(self.columns):
+                print_x = MENU_START_X + COLUMN_WIDTH * column + 10
+                print_y = MENU_START_Y + 10
                 
-                # If header, draw a smaller rectangle
-                if element.header:
-                    self.renderer.draw_rect_2d(print_x, print_y - 10, len(element.text) * units_x_per_char, units_y_per_line, False, self.renderer.blue())
-                # If selected, draw a rectangle around the element
-                if element.selected:
-                    self.renderer.draw_rect_2d(print_x, print_y - 10, len(element.text) * units_x_per_char, units_y_per_line, False, self.renderer.white())
-                    color = self.renderer.black()
-                else:
-                    color = text_color
-                # If header, draw text in green
-                if element.header:
-                    self.renderer.draw_string_2d(print_x + 5, print_y, 1, 1, element.text, self.renderer.white())
-                else:
-                    self.renderer.draw_string_2d(print_x + 5, print_y, 1, 1, element.text, color)
-                print_y += units_y_per_line
-            
-            # Draw scroll indicators if needed
-            if len(self.elements[column]) > max_visible_elements:
-                # Draw scroll up indicator
-                if self.scroll_offset[column] > 0:
-                    indicator_x = print_x + COLUMN_WIDTH - 30
-                    indicator_y = MENU_START_Y + 10
-                    self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↑", self.renderer.white())
+                # Calculate which elements to show based on scroll offset
+                start_index = self.scroll_offset[column]
+                end_index = min(start_index + max_visible_elements, len(self.elements[column]))
                 
-                # Draw scroll down indicator
-                if end_index < len(self.elements[column]):
-                    indicator_x = print_x + COLUMN_WIDTH - 30
-                    indicator_y = MENU_START_Y + MENU_HEIGHT - 30
-                    self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↓", self.renderer.white())
+                # Render only visible elements
+                for i in range(start_index, end_index):
+                    element = self.elements[column][i]
+                    
+                    # If header, draw a smaller rectangle
+                    if element.header:
+                        self.renderer.draw_rect_2d(print_x, print_y - 10, len(element.text) * units_x_per_char, units_y_per_line, False, self.renderer.blue())
+                    # If selected, draw a rectangle around the element
+                    if element.selected:
+                        self.renderer.draw_rect_2d(print_x, print_y - 10, len(element.text) * units_x_per_char, units_y_per_line, False, self.renderer.white())
+                        color = self.renderer.black()
+                    else:
+                        color = text_color
+                    # If header, draw text in green
+                    if element.header:
+                        self.renderer.draw_string_2d(print_x + 5, print_y, 1, 1, element.text, self.renderer.white())
+                    else:
+                        self.renderer.draw_string_2d(print_x + 5, print_y, 1, 1, element.text, color)
+                    print_y += units_y_per_line
+                
+                # Draw scroll indicators if needed
+                if len(self.elements[column]) > max_visible_elements:
+                    # Draw scroll up indicator
+                    if self.scroll_offset[column] > 0:
+                        indicator_x = print_x + COLUMN_WIDTH - 30
+                        indicator_y = MENU_START_Y + 10
+                        self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↑", self.renderer.white())
+                    
+                    # Draw scroll down indicator
+                    if end_index < len(self.elements[column]):
+                        indicator_x = print_x + COLUMN_WIDTH - 30
+                        indicator_y = MENU_START_Y + MENU_HEIGHT - 30
+                        self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↓", self.renderer.white())
+        else:
+            # Display user's current input
+            self.renderer.draw_string_2d(MENU_START_X + 10, MENU_START_Y + 10, 1, 1, self.text_input_value, self.renderer.white())
 
         instruction_text = "Press 'b' to go back" if not self.is_root else "Press 'm' to exit menu"
         instruction_x = MENU_START_X + (MENU_WIDTH - len(instruction_text) * units_x_per_char) // 2

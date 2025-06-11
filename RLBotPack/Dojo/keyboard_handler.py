@@ -8,6 +8,7 @@ class KeyboardHandler:
     
     def __init__(self, game_state: DojoGameState):
         self.game_state = game_state
+        self.root_menu = root_menu
         self.callbacks: Dict[str, Callable] = {}
         self._setup_hotkeys()
     
@@ -32,11 +33,24 @@ class KeyboardHandler:
         keyboard.add_hotkey('r', self._custom_select_roll)
         keyboard.add_hotkey('v', self._custom_select_velocity)
         keyboard.add_hotkey('enter', self._enter_handler)
+        
+        # For all other letters, submit the letter as a text input
+        for letter in string.ascii_letters:
+            keyboard.add_hotkey(letter, self._text_input_handler)
+            
+        # Also allow underscores and dashes in text input
+        keyboard.add_hotkey('_', self._text_input_handler)
+        keyboard.add_hotkey('-', self._text_input_handler)
     
     def _menu_toggle(self):
         """Handle menu toggle"""
         if 'menu_toggle' in self.callbacks:
             self.callbacks['menu_toggle']()
+            
+    def _text_input_handler(self):
+        """Handle text input"""
+        if 'text_input' in self.callbacks:
+            self.callbacks['text_input']()
     
     def _down_handler(self):
         """Handle down arrow key"""
