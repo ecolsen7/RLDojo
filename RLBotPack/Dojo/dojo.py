@@ -106,7 +106,7 @@ class Dojo(BaseScript):
         self._setup_menus()
         
         # Register keyboard callbacks
-        self._register_keyboard_callbacks()
+        self._setup_keyboard_callbacks()
         
         # Set initial pause time
         self.game_state.pause_time = DEFAULT_PAUSE_TIME
@@ -155,14 +155,15 @@ class Dojo(BaseScript):
             )
         self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
     
-    def _register_keyboard_callbacks(self):
-        """Register all keyboard input callbacks"""
+    def _setup_keyboard_callbacks(self):
+        """Set up all keyboard callbacks"""
         # Menu callbacks
-        self.keyboard_handler.register_callback('menu_toggle', self._menu_toggle)
-        self.keyboard_handler.register_callback('menu_down', self.menu_renderer.select_next_element)
+        self.keyboard_handler.register_callback('menu_toggle', self._toggle_menu)
         self.keyboard_handler.register_callback('menu_up', self.menu_renderer.select_last_element)
+        self.keyboard_handler.register_callback('menu_down', self.menu_renderer.select_next_element)
         self.keyboard_handler.register_callback('menu_left', self.menu_renderer.move_to_prev_column)
         self.keyboard_handler.register_callback('menu_right', self.menu_renderer.move_to_next_column)
+        self.keyboard_handler.register_callback('menu_back', self.menu_renderer.handle_back_key)
         self.keyboard_handler.register_callback('enter', self.menu_renderer.enter_element)
         
         # Custom mode callbacks
@@ -256,7 +257,7 @@ class Dojo(BaseScript):
             self.current_mode.cleanup()
         self.current_mode = self.scenario_mode
     
-    def _menu_toggle(self):
+    def _toggle_menu(self):
         """Toggle menu visibility"""
         if self.game_state.gym_mode == GymMode.RACE:
             if self.game_state.game_phase == RacePhase.MENU:
