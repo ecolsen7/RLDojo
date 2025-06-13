@@ -14,12 +14,17 @@ from menu import MenuRenderer, UIElement
 
 CUSTOM_PLAYLISTS_FILE = "custom_playlists.json"
 
+EXTERNAL_MENU_START_X = 1200
+EXTERNAL_MENU_START_Y = 200
+EXTERNAL_MENU_WIDTH = 500
+EXTERNAL_MENU_HEIGHT = 1000
+
 class CustomPlaylistManager:
-    def __init__(self, renderer):
+    def __init__(self, renderer, main_menu_renderer):
         self.renderer = renderer
         self.custom_playlists = {}
         self.load_custom_playlists()
-        
+        self.main_menu_renderer = main_menu_renderer
         # Current playlist being created/edited
         self.current_playlist_name = ""
         self.current_scenarios = []
@@ -101,21 +106,66 @@ class CustomPlaylistManager:
     
     def create_playlist_creation_menu(self):
         """Create the main playlist creation menu"""
-        menu = MenuRenderer(self.renderer, columns=1)
+        menu = MenuRenderer(self.renderer, columns=1, render_function=self._render_playlist_details)
         menu.add_element(UIElement("Create Custom Playlist", header=True))
-        menu.add_element(UIElement("Set Playlist Name", function=self._start_name_input))
+        menu.add_element(UIElement("Set Playlist Name", submenu=self._create_name_input_menu(), display_value_function=self.get_current_playlist_name))
         menu.add_element(UIElement("Add Scenarios", submenu=self._create_scenario_selection_menu()))
-        menu.add_element(UIElement("Set Boost Range", submenu=self._create_boost_range_menu()))
-        menu.add_element(UIElement("Set Timeout", submenu=self._create_timeout_menu()))
-        menu.add_element(UIElement("Toggle Rule Zero", function=self._toggle_rule_zero))
-        menu.add_element(UIElement("Show Current Settings", function=self._show_current_settings))
+        menu.add_element(UIElement("Set Boost Range", submenu=self._create_boost_range_menu(), display_value_function=self.get_current_playlist_boost_range))
+        menu.add_element(UIElement("Set Timeout", submenu=self._create_timeout_menu(), display_value_function=self.get_current_playlist_timeout))
+        menu.add_element(UIElement("Toggle Rule Zero", function=self._toggle_rule_zero, display_value_function=self.get_current_playlist_rule_zero))
         menu.add_element(UIElement("Save Playlist", function=self._save_current_playlist))
         menu.add_element(UIElement("Cancel", function=self._cancel_playlist_creation))
+        return menu
+        
+    ### Element value retrieval functions
+    def get_current_playlist_name(self):
+        return self.current_playlist_name
+        
+    def get_current_playlist_scenarios(self):
+        return self.current_scenarios
+    
+    def get_current_playlist_boost_range(self):
+        return self.current_boost_range
+    
+    def get_current_playlist_timeout(self):
+        return self.current_timeout
+    
+    def get_current_playlist_rule_zero(self):
+        return self.current_rule_zero
+
+    ###
+    
+    def _render_playlist_details(self):
+        """Render the playlist details"""
+        self.renderer.draw_rect_2d(EXTERNAL_MENU_START_X, EXTERNAL_MENU_START_Y, EXTERNAL_MENU_WIDTH, EXTERNAL_MENU_HEIGHT, False, self.renderer.black())
+        print_start_x = EXTERNAL_MENU_START_X + 10
+        print_start_y = EXTERNAL_MENU_START_Y + 10
+        text_color = self.renderer.white()
+        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, "Playlist Details", text_color)
+        print_start_y += 20
+        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Name: {self.current_playlist_name}", text_color)
+        print_start_y += 20
+        num_scenarios = len(self.current_scenarios)
+        num_scenarios_text = str(num_scenarios)
+        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Scenarios: {num_scenarios_text}", text_color)
+        print_start_y += 20
+        for scenario in self.current_scenarios:
+            self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"{scenario.offensive_mode.name.replace('_', ' ').title()} vs {scenario.defensive_mode.name.replace('_', ' ').title()} ({scenario.player_role.name})", text_color)
+            print_start_y += 20
+        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Boost Range: {self.current_boost_range[0]}-{self.current_boost_range[1]}", text_color)
+        print_start_y += 20
+        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Timeout: {self.current_timeout}s", text_color)
+        print_start_y += 20
+    
+    def _create_name_input_menu(self):
+        """Create menu for setting playlist name"""
+        menu = MenuRenderer(self.renderer, columns=1, text_input=True, text_input_callback=self._set_playlist_name)
+        # menu.add_element(UIElement("Enter Playlist Name", header=True))
         return menu
     
     def _create_scenario_selection_menu(self):
         """Create menu for selecting scenarios to add"""
-        menu = MenuRenderer(self.renderer, columns=3)
+        menu = MenuRenderer(self.renderer, columns=3, show_selections=True, render_function=self._render_playlist_details)
         
         # Column 1: Offensive modes
         menu.add_element(UIElement("Offensive Mode", header=True), column=0)
@@ -123,7 +173,8 @@ class CustomPlaylistManager:
             menu.add_element(UIElement(
                 mode.name.replace('_', ' ').title(),
                 function=self._set_temp_offensive_mode,
-                function_args=mode
+                function_args=mode,
+                chooseable=True,
             ), column=0)
         
         # Column 2: Defensive modes
@@ -132,17 +183,17 @@ class CustomPlaylistManager:
             menu.add_element(UIElement(
                 mode.name.replace('_', ' ').title(),
                 function=self._set_temp_defensive_mode,
-                function_args=mode
+                function_args=mode,
+                chooseable=True,
             ), column=1)
         
         # Column 3: Player role and actions
         menu.add_element(UIElement("Player Role", header=True), column=2)
-        menu.add_element(UIElement("Offense", function=self._set_temp_player_role, function_args=PlayerRole.OFFENSE), column=2)
-        menu.add_element(UIElement("Defense", function=self._set_temp_player_role, function_args=PlayerRole.DEFENSE), column=2)
+        menu.add_element(UIElement("Offense", function=self._set_temp_player_role, function_args=PlayerRole.OFFENSE, chooseable=True), column=2)
+        menu.add_element(UIElement("Defense", function=self._set_temp_player_role, function_args=PlayerRole.DEFENSE, chooseable=True), column=2)
         menu.add_element(UIElement("", header=True), column=2)  # Spacer
         menu.add_element(UIElement("Add Scenario", function=self._add_current_scenario), column=2)
-        menu.add_element(UIElement("View Added Scenarios", function=self._show_scenario_list), column=2)
-        menu.add_element(UIElement("Clear All Scenarios", function=self._clear_all_scenarios), column=2)
+        
         
         return menu
     
@@ -199,6 +250,10 @@ class CustomPlaylistManager:
     temp_defensive_mode = None
     temp_player_role = None
     
+    def _set_playlist_name(self, name):
+        self.current_playlist_name = name
+        print(f"Playlist name set to: {name}")
+    
     def _set_temp_offensive_mode(self, mode):
         self.temp_offensive_mode = mode
         print(f"Selected offensive mode: {mode.name}")
@@ -226,6 +281,10 @@ class CustomPlaylistManager:
             self.temp_offensive_mode = None
             self.temp_defensive_mode = None
             self.temp_player_role = None
+            
+            # Exit the submenu
+            if self.main_menu_renderer:
+                self.main_menu_renderer.handle_back_key()
         else:
             print("Please select offensive mode, defensive mode, and player role first")
     
@@ -269,16 +328,6 @@ class CustomPlaylistManager:
         print(f"Timeout: {self.current_timeout}s")
         print(f"Rule Zero: {'ON' if self.current_rule_zero else 'OFF'}")
         print("==================================")
-    
-    def _start_name_input(self):
-        """Start playlist name input (simplified for now)"""
-        # For now, we'll use a simple counter-based naming
-        # In a full implementation, you might want keyboard input
-        counter = 1
-        while f"Custom Playlist {counter}" in self.custom_playlists:
-            counter += 1
-        self.current_playlist_name = f"Custom Playlist {counter}"
-        print(f"Playlist name set to: {self.current_playlist_name}")
     
     def _save_current_playlist(self):
         """Save the currently configured playlist"""

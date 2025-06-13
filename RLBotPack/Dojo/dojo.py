@@ -1,11 +1,12 @@
 import numpy as np
+import keyboard
+import string
 from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
 # Import our new modular components
-from state.game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_MODES
+from state.game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_MODES, CustomUpDownSelection, CustomLeftRightSelection
 from game_modes import ScenarioMode, RaceMode
-from keyboard_handler import KeyboardHandler
 from rendering import UIRenderer
 from menu import MenuRenderer, UIElement
 from scenario import Scenario, OffensiveMode, DefensiveMode
@@ -31,7 +32,6 @@ class Dojo(BaseScript):
         
         # Initialize core components
         self.game_state = DojoGameState()
-        self.keyboard_handler = None
         self.ui_renderer = None  # Will be initialized after renderer is available
         
         # Game modes
@@ -93,7 +93,7 @@ class Dojo(BaseScript):
         self.ui_renderer = UIRenderer(self.game_interface.renderer, self.game_state)
         
         # Initialize custom playlist manager
-        self.custom_playlist_manager = CustomPlaylistManager(self.game_interface.renderer)
+        self.custom_playlist_manager = CustomPlaylistManager(renderer=self.game_interface.renderer, main_menu_renderer=self.menu_renderer)
         
         # Initialize game modes
         self.scenario_mode = ScenarioMode(self.game_state, self.game_interface)
@@ -106,11 +106,10 @@ class Dojo(BaseScript):
         # Initialize menu system
         self._setup_menus()
         
-         # Initialize keyboard handler
-        self.keyboard_handler = KeyboardHandler(self.game_state)
+        self.custom_playlist_manager.main_menu_renderer = self.menu_renderer
         
-        # Register keyboard callbacks
-        self._setup_keyboard_callbacks()
+        # Set up keyboard handlers
+        self._setup_keyboard_handlers()
         
         # Set initial pause time
         self.game_state.pause_time = DEFAULT_PAUSE_TIME
@@ -160,28 +159,176 @@ class Dojo(BaseScript):
             )
         self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
     
-    def _setup_keyboard_callbacks(self):
-        """Set up all keyboard callbacks"""
-        # Menu callbacks
-        self.keyboard_handler.register_callback('menu_toggle', self._toggle_menu)
-        self.keyboard_handler.register_callback('menu_up', self.menu_renderer.select_last_element)
-        self.keyboard_handler.register_callback('menu_down', self.menu_renderer.select_next_element)
-        self.keyboard_handler.register_callback('menu_left', self.menu_renderer.move_to_prev_column)
-        self.keyboard_handler.register_callback('menu_right', self.menu_renderer.move_to_next_column)
-        self.keyboard_handler.register_callback('menu_back', self.menu_renderer.handle_back_key)
-        self.keyboard_handler.register_callback('enter', self.menu_renderer.enter_element)
+    def _setup_keyboard_handlers(self):
+        """Set up all keyboard hotkeys"""
+        keyboard.add_hotkey('m', self._toggle_menu)
+        keyboard.add_hotkey('left', self._handle_left)
+        keyboard.add_hotkey('right', self._handle_right)
+        keyboard.add_hotkey('down', self._handle_down)
+        keyboard.add_hotkey('up', self._handle_up)
+        keyboard.add_hotkey('n', self._next_custom_step)
+        keyboard.add_hotkey('b', self._handle_back)
+        keyboard.add_hotkey('x', self._custom_select_x)
+        keyboard.add_hotkey('y', self._custom_select_y)
+        keyboard.add_hotkey('z', self._custom_select_z)
+        keyboard.add_hotkey('p', self._custom_select_pitch)
+        keyboard.add_hotkey('Y', self._custom_select_yaw)
+        keyboard.add_hotkey('r', self._custom_select_roll)
+        keyboard.add_hotkey('v', self._custom_select_velocity)
+        keyboard.add_hotkey('enter', self._enter_handler)
         
-        # Custom mode callbacks
-        self.keyboard_handler.register_callback('custom_down', self._custom_down_handler)
-        self.keyboard_handler.register_callback('custom_up', self._custom_up_handler)
-        self.keyboard_handler.register_callback('custom_left', self._custom_left_handler)
-        self.keyboard_handler.register_callback('custom_right', self._custom_right_handler)
-        self.keyboard_handler.register_callback('next_custom_step', self._next_custom_step)
-        self.keyboard_handler.register_callback('prev_custom_step', self._prev_custom_step)
+        # For all other letters, submit the letter as a text input
+        for letter in string.ascii_lowercase:
+            self._add_hotkey_with_arg(letter, self._handle_text_input, letter)
+            
+        # Also allow underscores and dashes in text input
+        self._add_hotkey_with_arg('_', self._handle_text_input, '_')
+        self._add_hotkey_with_arg('-', self._handle_text_input, '-')
         
-        # Text input callbacks
-        self.keyboard_handler.register_callback('text_input', self.menu_renderer.handle_text_input)
-    
+        # Allow backspace in text input
+        keyboard.add_hotkey('backspace', self._handle_text_backspace)
+        
+    ### Keyboard handler utilities 
+    def _add_hotkey_with_arg(self, hotkey, function, function_args):
+        def wrapper():
+            function(function_args)
+        keyboard.add_hotkey(hotkey, wrapper)
+
+    ### Keyboard handlers
+    def _enter_handler(self):
+        """Handle enter key"""
+        if self.menu_renderer.is_in_text_input_mode():
+            self._complete_text_input()
+        else:
+            self._enter_menu_element()
+
+    def _enter_menu_element(self):
+        """Enter the currently selected menu element"""
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        
+        self.menu_renderer.enter_element()
+
+    def _complete_text_input(self):
+        """Complete text input"""
+        if not self.menu_renderer.is_in_text_input_mode():
+            print(f"Not in text input mode, ignoring enter")
+            return
+        
+        self.menu_renderer.complete_text_input()
+        self.menu_renderer.handle_back_key()
+
+    def _handle_left(self):
+        """Handle left arrow key"""
+        if self.game_state.is_in_custom_mode():
+            self._custom_left_handler()
+        else:
+            self.menu_renderer.move_to_prev_column()
+
+    def _handle_right(self):
+        """Handle right arrow key"""
+        if self.game_state.is_in_custom_mode():
+            self._custom_right_handler()
+        else:
+            self.menu_renderer.move_to_next_column()
+
+    def _handle_down(self):
+        """Handle down arrow key"""
+        if self.game_state.is_in_custom_mode():
+            self._custom_down_handler()
+        else:
+            self.menu_renderer.select_next_element()
+
+    def _handle_up(self):
+        """Handle up arrow key"""
+        if self.game_state.is_in_custom_mode():
+            self._custom_up_handler()
+        else:
+            self.menu_renderer.select_last_element()
+
+    def _handle_back(self):
+        """Handle back key - either for menu navigation or custom mode"""
+        # If in text input mode, no-op
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        
+        if self.game_state.is_in_custom_mode():
+            self._prev_custom_step()
+        else:
+            self.menu_renderer.handle_back_key()
+
+    def _custom_select_x(self):
+        """Select X coordinate for custom mode"""
+        # If in text input mode, no-op
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+            
+        self.game_state.custom_leftright_selection = CustomLeftRightSelection.X
+
+    def _custom_select_y(self):
+        """Select Y coordinate for custom mode"""
+        # If in text input mode, no-op
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        
+        self.game_state.custom_updown_selection = CustomUpDownSelection.Y
+
+    def _custom_select_z(self):
+        """Select Z coordinate for custom mode"""
+        # If in text input mode, no-op
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        
+        self.game_state.custom_updown_selection = CustomUpDownSelection.Z
+
+    def _custom_select_pitch(self):
+        """Select pitch for custom mode"""
+        # If in text input mode, no-op
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        
+        self.game_state.custom_updown_selection = CustomUpDownSelection.PITCH
+
+    def _custom_select_yaw(self):
+        """Select yaw for custom mode"""
+        # If in text input mode, no-op
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        
+        self.game_state.custom_leftright_selection = CustomLeftRightSelection.YAW
+
+    def _custom_select_roll(self):
+        """Select roll for custom mode"""
+        # If in text input mode, no-op
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        
+        self.game_state.custom_leftright_selection = CustomLeftRightSelection.ROLL
+
+    def _custom_select_velocity(self):
+        """Select velocity for custom mode"""
+        # If in text input mode, no-op
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        
+        self.game_state.custom_updown_selection = CustomUpDownSelection.VELOCITY
+
+    def _handle_text_backspace(self):
+        """Handle backspace in text input"""
+        if not self.menu_renderer.is_in_text_input_mode():
+            print(f"Not in text input mode, ignoring backspace")
+            return
+        
+        self.menu_renderer.handle_text_backspace()
+
+    def _handle_text_input(self, key):
+        """Handle text input if in text input mode"""
+        if not self.menu_renderer.is_in_text_input_mode():
+            print(f"Not in text input mode, ignoring key: {key}")
+            return
+        
+        self.menu_renderer.handle_text_input(key)
+
     def _render_ui(self):
         """Render all UI elements"""
         if self.ui_renderer:
@@ -436,6 +583,9 @@ class Dojo(BaseScript):
                 self.current_mode.cleanup()
             self.current_mode = self.scenario_mode
 
+    def cleanup(self):
+        """Clean up keyboard handlers"""
+        keyboard.unhook_all()
 
 # Entry point
 if __name__ == "__main__":

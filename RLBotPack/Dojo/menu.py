@@ -12,7 +12,8 @@ units_y_per_line = 40
 
 class UIElement():
     ''' Each element consist of a text and a function to call when the element is clicked '''
-    def __init__(self, text, function=None, function_args=None, submenu=None, header=False):
+    def __init__(self, text, function=None, function_args=None, 
+    submenu=None, header=False, display_value_function=None, chooseable=False):
         self.text = text
         self.function = function
         self.function_args = function_args
@@ -20,12 +21,25 @@ class UIElement():
         self.entered = False
         self.submenu = submenu
         self.header = header
+        self.display_value_function = display_value_function
+        self.chooseable = chooseable
+        self.chosen = False
         
+    def get_display_value(self):
+        if self.display_value_function:
+            return self.display_value_function()
+        return None
+    
     def back(self):
         self.entered = False
+        
+    def choose(self):
+        self.chosen = True
 
+        
 class MenuRenderer():
-    def __init__(self, renderer, columns=1, text_input=False):
+    def __init__(self, renderer, columns=1, text_input=False, 
+    text_input_callback=None, render_function=None, show_selections=False):
         self.renderer = renderer
         # Each column has its own list of elements
         self.elements = [[] for _ in range(columns)]
@@ -35,10 +49,61 @@ class MenuRenderer():
         self.scroll_offset = [0 for _ in range(columns)]
         self.is_root = False
         self.is_text_input_menu = text_input
-        self.text_input_value = None
-
+        self.text_input_value = ""
+        self.text_input_callback = text_input_callback
+        self.show_selections = show_selections
+            
+        # Allows for an element to be rendered outside of the menu when selected
+        self.render_function = render_function
+        
     def add_element(self, element, column=0):
         self.elements[column].append(element)
+        
+    def handle_text_input(self, key):
+        if self.is_text_input_menu:
+            self.text_input_value += key
+        else:
+            for element in self.elements[self.active_column]:
+                if element.entered:
+                    element.submenu.handle_text_input(key)
+                    
+    def handle_text_backspace(self):
+        if self.is_text_input_menu:
+            if len(self.text_input_value) > 0:
+                self.text_input_value = self.text_input_value[:-1]
+        else:
+            for element in self.elements[self.active_column]:
+                if element.entered:
+                    element.submenu.handle_text_backspace()
+    
+    def complete_text_input(self):
+        print("entering complete text input: ", self.is_text_input_menu)
+        if self.is_text_input_menu:
+            print("completing text input: ", self.text_input_value)
+            # self.is_text_input_menu = False
+            if self.text_input_callback:
+                self.text_input_callback(self.text_input_value)
+            self.text_input_value = ""
+        else:
+            for element in self.elements[self.active_column]:
+                if element.entered:
+                    element.submenu.complete_text_input()
+    
+    def _back_deepest_entered_element(self):
+        has_entered_element = False
+        for column in range(self.columns):
+            for element in self.elements[column]:
+                if element.entered:
+                    has_entered_element = True
+                    print("checking if element is deepest: ", element.text)
+                    deepest_element = element.submenu._back_deepest_entered_element()
+                    if deepest_element:
+                        print("backing element: ", element.text)
+                        element.back()
+                        return False
+        if not has_entered_element:
+            return True
+        return False
 
     def _get_max_visible_elements(self):
         """Calculate maximum number of elements that can fit in the menu"""
@@ -162,9 +227,15 @@ class MenuRenderer():
         for element in self.elements[self.active_column]:
             if element.selected:
                 if element.submenu:
+                    print("entering submenu: ", element.submenu)
                     element.entered = True
-                elif element.function:
-                    print("entering element: ", element)
+                elif element.chooseable:
+                    element.chosen = True
+                    # Unchoose all other elements in the column
+                    for other_element in self.elements[self.active_column]:
+                        if other_element != element:
+                            other_element.chosen = False
+                if element.function:
                     if element.function_args:
                         element.function(element.function_args)
                     else:
@@ -173,21 +244,15 @@ class MenuRenderer():
 
     def handle_back_key(self):
         """Handle the 'b' key press to go back in menus"""
-        # Check if any element in any column is entered
-        for column in range(self.columns):
-            for element in self.elements[column]:
-                if element.entered:
-                    element.back()
-                    return True
-        return False
+        self._back_deepest_entered_element()
         
-    def is_in_text_input(self):
+    def is_in_text_input_mode(self):
         if self.is_text_input_menu:
             return True
         for column in range(self.columns):
             for element in self.elements[column]:
                 if element.entered:
-                    return element.is_in_text_input()
+                    return element.submenu.is_in_text_input_mode()
         return False
 
     def render_menu(self):
@@ -223,6 +288,10 @@ class MenuRenderer():
 
         # Render the list of options, if this menu isn't a text input
         if not self.is_text_input_menu:
+            # If this menu has an external render function, call it in addition to the normal rendering
+            if self.render_function:
+                self.render_function()
+                
             for column in range(self.columns):
                 print_x = MENU_START_X + COLUMN_WIDTH * column + 10
                 print_y = MENU_START_Y + 10
@@ -235,12 +304,21 @@ class MenuRenderer():
                 for i in range(start_index, end_index):
                     element = self.elements[column][i]
                     
+                    display_value = element.get_display_value()
+                    
+                    text = element.text
+                    if display_value != None:
+                        text += ": " + str(display_value)
+                        
+                    if element.chosen:
+                        text += " [x]"
+                    
                     # If header, draw a smaller rectangle
                     if element.header:
                         self.renderer.draw_rect_2d(print_x, print_y - 10, len(element.text) * units_x_per_char, units_y_per_line, False, self.renderer.blue())
                     # If selected, draw a rectangle around the element
                     if element.selected:
-                        self.renderer.draw_rect_2d(print_x, print_y - 10, len(element.text) * units_x_per_char, units_y_per_line, False, self.renderer.white())
+                        self.renderer.draw_rect_2d(print_x, print_y - 10, len(text) * units_x_per_char, units_y_per_line, False, self.renderer.white())
                         color = self.renderer.black()
                     else:
                         color = text_color
@@ -248,7 +326,7 @@ class MenuRenderer():
                     if element.header:
                         self.renderer.draw_string_2d(print_x + 5, print_y, 1, 1, element.text, self.renderer.white())
                     else:
-                        self.renderer.draw_string_2d(print_x + 5, print_y, 1, 1, element.text, color)
+                        self.renderer.draw_string_2d(print_x + 5, print_y, 1, 1, text, color)
                     print_y += units_y_per_line
                 
                 # Draw scroll indicators if needed
@@ -265,8 +343,14 @@ class MenuRenderer():
                         indicator_y = MENU_START_Y + MENU_HEIGHT - 30
                         self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↓", self.renderer.white())
         else:
+            # Prompt user to enter a name for the entity
+            self.renderer.draw_string_2d(MENU_START_X + 10, MENU_START_Y + 10, 1, 1, "Enter a name:", self.renderer.white())
+            
             # Display user's current input
-            self.renderer.draw_string_2d(MENU_START_X + 10, MENU_START_Y + 10, 1, 1, self.text_input_value, self.renderer.white())
+            self.renderer.draw_string_2d(MENU_START_X + 10, MENU_START_Y + 30, 1, 1, self.text_input_value, self.renderer.white())
+            
+            # Show a cursor
+            self.renderer.draw_rect_2d(MENU_START_X + 10 + len(self.text_input_value) * units_x_per_char, MENU_START_Y + 30, 2, units_y_per_line, False, self.renderer.white())
 
         instruction_text = "Press 'b' to go back" if not self.is_root else "Press 'm' to exit menu"
         instruction_x = MENU_START_X + (MENU_WIDTH - len(instruction_text) * units_x_per_char) // 2
