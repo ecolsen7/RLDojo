@@ -33,9 +33,6 @@ class UIElement():
     
     def back(self):
         self.entered = False
-        
-    def choose(self):
-        self.chosen = True
 
         
 class MenuRenderer():
