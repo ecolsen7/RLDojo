@@ -398,20 +398,6 @@ class Dojo(BaseScript):
             self.current_mode.cleanup()
         self.current_mode = self.race_mode
     
-    def _set_free_goal_mode(self, trials):
-        """Set free goal mode with specified number of trials"""
-        print(f"Setting free goal mode with {trials} trials")
-        self.game_state.free_goal_mode = True
-        self.game_state.mirrored = True
-        self.game_state.gym_mode = GymMode.SCENARIO
-        self.game_state.game_phase = ScenarioPhase.INIT
-        self.game_state.num_trials = trials
-        
-        # Switch to scenario mode
-        if self.current_mode:
-            self.current_mode.cleanup()
-        self.current_mode = self.scenario_mode
-    
     def _toggle_menu(self):
         """Toggle menu visibility"""
         if self.game_state.gym_mode == GymMode.RACE:
