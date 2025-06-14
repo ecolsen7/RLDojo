@@ -25,44 +25,44 @@ Rule Zero Feature:
 from enum import Enum
 import numpy as np
 from scenario import OffensiveMode, DefensiveMode
+from pydantic import BaseModel, Field, ValidationError
+from typing import List, Optional, Tuple
 
 class PlayerRole(Enum):
     OFFENSE = 0
     DEFENSE = 1
 
-class ScenarioConfig:
-    def __init__(self, offensive_mode, defensive_mode, player_role, weight=1.0):
-        self.offensive_mode = offensive_mode
-        self.defensive_mode = defensive_mode
-        self.player_role = player_role  # Which role the human player takes
-        self.weight = weight
+class ScenarioConfig(BaseModel):
+    offensive_mode: OffensiveMode
+    defensive_mode: DefensiveMode
+    player_role: PlayerRole
+    weight: float = 1.0
 
-class PlaylistSettings:
-    def __init__(self, timeout=7.0, shuffle=True, loop=True, boost_range=None, rule_zero=False):
-        self.timeout = timeout
-        self.shuffle = shuffle
-        self.loop = loop
-        self.boost_range = boost_range  # Tuple (min_boost, max_boost) or None for default (12, 100)
-        self.rule_zero = rule_zero  # If True, scenarios don't end at timeout until ball touches ground
+class PlaylistSettings(BaseModel):
+    timeout: float = 7.0
+    shuffle: bool = True
+    loop: bool = True
+    boost_range: Tuple[int, int] = (12, 100)
+    rule_zero: bool = False
 
-class Playlist:
-    def __init__(self, name, description, scenarios=None, settings=None, 
-                 offensive_modes=None, defensive_modes=None, player_role=None):
-        self.name = name
-        self.description = description
-        self.settings = settings or PlaylistSettings()
-        self.current_index = 0
-        
+class Playlist(BaseModel):
+    name: str
+    description: str
+    scenarios: Optional[List[ScenarioConfig]] = Field(default_factory=list)
+    settings: Optional[PlaylistSettings] = None
+    offensive_modes: Optional[List[OffensiveMode]] = Field(default_factory=list)
+    defensive_modes: Optional[List[DefensiveMode]] = Field(default_factory=list)
+    player_role: Optional[PlayerRole] = None
+
+    def setup(self):
         # If offensive_modes and defensive_modes are provided, generate all combinations
-        if offensive_modes and defensive_modes and player_role is not None:
+        if self.offensive_modes and self.defensive_modes and self.player_role is not None:
             self.scenarios = []
-            for off_mode in offensive_modes:
-                for def_mode in defensive_modes:
-                    self.scenarios.append(ScenarioConfig(off_mode, def_mode, player_role))
-        else:
-            self.scenarios = scenarios or []
+            for off_mode in self.offensive_modes:
+                for def_mode in self.defensive_modes:
+                    self.scenarios.append(ScenarioConfig(off_mode, def_mode, self.player_role))
         
-        if self.settings.shuffle:
+        if self.settings and self.settings.shuffle:
             self._shuffle_scenarios()
     
     def get_next_scenario(self):
@@ -122,47 +122,47 @@ class PlaylistRegistry:
     def _register_default_playlists(self):
         # Free Goal (Offense focus) - Low boost for finishing practice
         free_goal = Playlist(
-            "Free Goal",
-            "Practice finishing with minimal defense",
+            name="Free Goal",
+            description="Practice finishing with minimal defense",
             scenarios=[
-                ScenarioConfig(OffensiveMode.BACKPASS, DefensiveMode.RECOVERING, PlayerRole.OFFENSE),
-                ScenarioConfig(OffensiveMode.SIDEWALL_BREAKOUT, DefensiveMode.RECOVERING, PlayerRole.OFFENSE),
-                ScenarioConfig(OffensiveMode.PASS, DefensiveMode.RECOVERING, PlayerRole.OFFENSE),
-                ScenarioConfig(OffensiveMode.CORNER, DefensiveMode.RECOVERING, PlayerRole.OFFENSE),
-                ScenarioConfig(OffensiveMode.SIDE_BACKBOARD_PASS, DefensiveMode.RECOVERING, PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.BACKPASS, defensive_mode=DefensiveMode.RECOVERING, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.SIDEWALL_BREAKOUT, defensive_mode=DefensiveMode.RECOVERING, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.PASS, defensive_mode=DefensiveMode.RECOVERING, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.CORNER, defensive_mode=DefensiveMode.RECOVERING, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.SIDE_BACKBOARD_PASS, defensive_mode=DefensiveMode.RECOVERING, player_role=PlayerRole.OFFENSE),
             ],
             settings=PlaylistSettings(boost_range=(20, 60), rule_zero=True)  # Lower boost for finishing practice, rule zero for natural endings
         )
         
         # Shadow Defense (Defense focus) - Variable boost for realistic defense
         shadow_defense = Playlist(
-            "Shadow Defense",
-            "Practice defensive positioning and timing",
+            name="Shadow Defense",
+            description="Practice defensive positioning and timing",
             scenarios=[
-                ScenarioConfig(OffensiveMode.POSSESSION, DefensiveMode.NEAR_SHADOW, PlayerRole.DEFENSE),
-                ScenarioConfig(OffensiveMode.BREAKOUT, DefensiveMode.FAR_SHADOW, PlayerRole.DEFENSE),
-                ScenarioConfig(OffensiveMode.CARRY, DefensiveMode.NEAR_SHADOW, PlayerRole.DEFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.POSSESSION, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.DEFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.BREAKOUT, defensive_mode=DefensiveMode.FAR_SHADOW, player_role=PlayerRole.DEFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.CARRY, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.DEFENSE),
             ],
             settings=PlaylistSettings(boost_range=(30, 80))  # Moderate boost for defense
         )
         
         # 1v1 Mixed (Both roles) - Full boost range for varied scenarios
         ones_mixed = Playlist(
-            "1v1 Mixed",
-            "Balanced offensive and defensive scenarios",
+            name="1v1 Mixed",
+            description="Balanced offensive and defensive scenarios",
             scenarios=[
-                ScenarioConfig(OffensiveMode.POSSESSION, DefensiveMode.NEAR_SHADOW, PlayerRole.OFFENSE),
-                ScenarioConfig(OffensiveMode.CORNER, DefensiveMode.CORNER, PlayerRole.DEFENSE),
-                ScenarioConfig(OffensiveMode.SIDEWALL, DefensiveMode.FAR_SHADOW, PlayerRole.OFFENSE),
-                ScenarioConfig(OffensiveMode.BREAKOUT, DefensiveMode.NET, PlayerRole.DEFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.POSSESSION, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.CORNER, defensive_mode=DefensiveMode.CORNER, player_role=PlayerRole.DEFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.SIDEWALL, defensive_mode=DefensiveMode.FAR_SHADOW, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.BREAKOUT, defensive_mode=DefensiveMode.NET, player_role=PlayerRole.DEFENSE),
             ]
             # No boost_range specified - uses default (12, 100)
         )
         
         # Mechanical (Complex offensive plays) - High boost for mechanical execution
         mechanical = Playlist(
-            "Mechanical",
-            "Practice complex mechanical plays and wall work",
+            name="Mechanical",
+            description="Practice complex mechanical plays and wall work",
             offensive_modes=[
                 OffensiveMode.SIDEWALL,
                 OffensiveMode.SIDEWALL_BREAKOUT,
@@ -181,8 +181,8 @@ class PlaylistRegistry:
         
         # Front Intercept Defense - Practice intercepting offensive plays
         front_intercept_defense = Playlist(
-            "Front Intercept Defense",
-            "Practice intercepting and challenging offensive plays from an advanced defensive position",
+            name="Front Intercept Defense",
+            description="Practice intercepting and challenging offensive plays from an advanced defensive position",
             offensive_modes=[
                 OffensiveMode.POSSESSION,
                 OffensiveMode.BREAKOUT,

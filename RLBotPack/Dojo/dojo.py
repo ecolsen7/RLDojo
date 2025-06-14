@@ -561,6 +561,8 @@ class Dojo(BaseScript):
         
         # Add each playlist as a menu option
         for playlist_name in self.scenario_mode.playlist_registry.list_playlists():
+            print(f"Playlist name: {playlist_name}")
+            print(f"Retrieved playlist: {self.scenario_mode.playlist_registry.get_playlist(playlist_name)}")
             playlist = self.scenario_mode.playlist_registry.get_playlist(playlist_name)
             playlist_menu.add_element(UIElement(
                 f"{playlist.name}",

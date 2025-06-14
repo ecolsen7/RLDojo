@@ -13,7 +13,7 @@ units_y_per_line = 40
 class UIElement():
     ''' Each element consist of a text and a function to call when the element is clicked '''
     def __init__(self, text, function=None, function_args=None, 
-    submenu=None, header=False, display_value_function=None, chooseable=False):
+    submenu=None, header=False, display_value_function=None, chooseable=False, spacer=False):
         self.text = text
         self.function = function
         self.function_args = function_args
@@ -24,6 +24,7 @@ class UIElement():
         self.display_value_function = display_value_function
         self.chooseable = chooseable
         self.chosen = False
+        self.spacer = spacer
         
     def get_display_value(self):
         if self.display_value_function:
@@ -95,10 +96,12 @@ class MenuRenderer():
             for element in self.elements[column]:
                 if element.entered:
                     has_entered_element = True
-                    print("checking if element is deepest: ", element.text)
                     deepest_element = element.submenu._back_deepest_entered_element()
                     if deepest_element:
-                        print("backing element: ", element.text)
+                        # Unchoose all of the element's submenu's elements, for all columns
+                        for column in range(element.submenu.columns):
+                            for submenu_element in element.submenu.elements[column]:
+                                submenu_element.chosen = False
                         element.back()
                         return False
         if not has_entered_element:
@@ -269,6 +272,15 @@ class MenuRenderer():
                 element.submenu.render_menu()
                 return
 
+        # If selected element is a spacer, move to the next element
+        for element in self.elements[self.active_column]:
+            if element.selected:
+                if element.spacer:
+                    self.select_next_element()
+                    return
+                else:
+                    break
+        
         # Ensure selected element is visible
         self._ensure_selected_visible()
 
