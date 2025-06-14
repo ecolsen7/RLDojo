@@ -11,98 +11,32 @@ from typing import List, Dict, Any, Optional, Tuple
 from playlist import Playlist, ScenarioConfig, PlaylistSettings, PlayerRole
 from scenario import OffensiveMode, DefensiveMode
 from menu import MenuRenderer, UIElement
-
-CUSTOM_PLAYLISTS_FILE = "custom_playlists.json"
+from pydantic import BaseModel, Field, ValidationError
 
 EXTERNAL_MENU_START_X = 1200
 EXTERNAL_MENU_START_Y = 200
 EXTERNAL_MENU_WIDTH = 500
-EXTERNAL_MENU_HEIGHT = 1000
+EXTERNAL_MENU_HEIGHT = 800
 
 class CustomPlaylistManager:
     def __init__(self, renderer, main_menu_renderer):
         self.renderer = renderer
-        self.custom_playlists = {}
-        self.load_custom_playlists()
         self.main_menu_renderer = main_menu_renderer
         # Current playlist being created/edited
         self.current_playlist_name = ""
         self.current_scenarios = []
-        self.current_boost_range = (12, 100)  # Default boost range
+        self.current_boost_range = [12, 100]  # Default boost range
         self.current_timeout = 7.0
         self.current_rule_zero = False
         
     def load_custom_playlists(self):
-        """Load custom playlists from disk"""
-        if os.path.exists(CUSTOM_PLAYLISTS_FILE):
-            try:
-                with open(CUSTOM_PLAYLISTS_FILE, 'r') as f:
-                    data = json.load(f)
-                    
-                for name, playlist_data in data.items():
-                    scenarios = []
-                    for scenario_data in playlist_data['scenarios']:
-                        offensive_mode = OffensiveMode(scenario_data['offensive_mode'])
-                        defensive_mode = DefensiveMode(scenario_data['defensive_mode'])
-                        player_role = PlayerRole(scenario_data['player_role'])
-                        weight = scenario_data.get('weight', 1.0)
-                        scenarios.append(ScenarioConfig(offensive_mode, defensive_mode, player_role, weight))
-                    
-                    settings_data = playlist_data['settings']
-                    boost_range = tuple(settings_data['boost_range']) if settings_data['boost_range'] else None
-                    settings = PlaylistSettings(
-                        timeout=settings_data['timeout'],
-                        shuffle=settings_data['shuffle'],
-                        loop=settings_data['loop'],
-                        boost_range=boost_range,
-                        rule_zero=settings_data['rule_zero']
-                    )
-                    
-                    playlist = Playlist(
-                        name=name,
-                        description=playlist_data['description'],
-                        scenarios=scenarios,
-                        settings=settings
-                    )
-                    self.custom_playlists[name] = playlist
-                    
-            except Exception as e:
-                print(f"Error loading custom playlists: {e}")
-                self.custom_playlists = {}
-    
-    def save_custom_playlists(self):
-        """Save custom playlists to disk"""
-        try:
-            data = {}
-            for name, playlist in self.custom_playlists.items():
-                scenarios_data = []
-                for scenario in playlist.scenarios:
-                    scenarios_data.append({
-                        'offensive_mode': scenario.offensive_mode.value,
-                        'defensive_mode': scenario.defensive_mode.value,
-                        'player_role': scenario.player_role.value,
-                        'weight': scenario.weight
-                    })
-                
-                settings_data = {
-                    'timeout': playlist.settings.timeout,
-                    'shuffle': playlist.settings.shuffle,
-                    'loop': playlist.settings.loop,
-                    'boost_range': list(playlist.settings.boost_range) if playlist.settings.boost_range else None,
-                    'rule_zero': playlist.settings.rule_zero
-                }
-                
-                data[name] = {
-                    'description': playlist.description,
-                    'scenarios': scenarios_data,
-                    'settings': settings_data
-                }
-            
-            with open(CUSTOM_PLAYLISTS_FILE, 'w') as f:
-                json.dump(data, f, indent=2)
-                
-        except Exception as e:
-            print(f"Error saving custom playlists: {e}")
+        """Load custom playlists from disk and return a list of all custom playlists"""
+        custom_playlists = {}
+        for file in os.listdir(_get_custom_playlists_path()):
+            if file.endswith(".json"):
+                with open(os.path.join(_get_custom_playlists_path(), file), "r") as f:
+                    custom_playlists[file.replace(".json", "")] = Playlist.model_validate_json(f.read())
+        return custom_playlists
     
     def create_playlist_creation_menu(self):
         """Create the main playlist creation menu"""
@@ -270,9 +204,9 @@ class CustomPlaylistManager:
         """Add the currently selected scenario configuration"""
         if self.temp_offensive_mode and self.temp_defensive_mode and self.temp_player_role:
             scenario = ScenarioConfig(
-                self.temp_offensive_mode,
-                self.temp_defensive_mode,
-                self.temp_player_role
+                offensive_mode=self.temp_offensive_mode,
+                defensive_mode=self.temp_defensive_mode,
+                player_role=self.temp_player_role
             )
             self.current_scenarios.append(scenario)
             print(f"Added scenario: {self.temp_offensive_mode.name} vs {self.temp_defensive_mode.name} ({self.temp_player_role.name})")
@@ -330,41 +264,23 @@ class CustomPlaylistManager:
         print("==================================")
     
     def _save_current_playlist(self):
-        """Save the currently configured playlist"""
+        """Save the currently configured playlist to file, and register it in the playlist registry"""
         if not self.current_playlist_name:
             print("Please set a playlist name first")
             return
         
-        if not self.current_scenarios:
-            print("Please add at least one scenario")
-            return
-        
-        settings = PlaylistSettings(
-            timeout=self.current_timeout,
-            shuffle=True,
-            loop=True,
-            boost_range=self.current_boost_range,
-            rule_zero=self.current_rule_zero
-        )
-        
+        # Register the playlist in the playlist registry 
+        # and save it to file
         playlist = Playlist(
             name=self.current_playlist_name,
             description=f"Custom playlist with {len(self.current_scenarios)} scenarios",
             scenarios=self.current_scenarios.copy(),
-            settings=settings
+            settings=PlaylistSettings(timeout=self.current_timeout, shuffle=True, boost_range=self.current_boost_range, rule_zero=self.current_rule_zero)
         )
         
-        self.custom_playlists[self.current_playlist_name] = playlist
-        self.save_custom_playlists()
-        
-        print(f"Saved playlist: {self.current_playlist_name}")
-        
-        # Reset current playlist data
-        self._reset_current_playlist()
-        
-        # Notify that playlists have been updated (for menu refresh)
-        print("Custom playlist saved! Return to main menu to see it in the playlist list.")
-    
+        with open(os.path.join(_get_custom_playlists_path(), f"{self.current_playlist_name}.json"), "w") as f:
+            f.write(playlist.model_dump_json())
+
     def _cancel_playlist_creation(self):
         """Cancel playlist creation and reset"""
         self._reset_current_playlist()
@@ -374,7 +290,7 @@ class CustomPlaylistManager:
         """Reset current playlist creation data"""
         self.current_playlist_name = ""
         self.current_scenarios = []
-        self.current_boost_range = (12, 100)
+        self.current_boost_range = [12, 100]
         self.current_timeout = 7.0
         self.current_rule_zero = False
         self.temp_offensive_mode = None
@@ -391,3 +307,9 @@ class CustomPlaylistManager:
             del self.custom_playlists[name]
             self.save_custom_playlists()
             print(f"Deleted playlist: {name}") 
+
+def _get_custom_playlists_path():
+    appdata_path = os.path.expandvars("%APPDATA%")
+    if not os.path.exists(os.path.join(appdata_path, "RLBot", "Dojo", "Playlists")):
+        os.makedirs(os.path.join(appdata_path, "RLBot", "Dojo", "Playlists"))
+    return os.path.join(appdata_path, "RLBot", "Dojo", "Playlists")
