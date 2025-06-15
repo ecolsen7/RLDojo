@@ -13,7 +13,8 @@ units_y_per_line = 40
 class UIElement():
     ''' Each element consist of a text and a function to call when the element is clicked '''
     def __init__(self, text, function=None, function_args=None, 
-    submenu=None, header=False, display_value_function=None, chooseable=False, spacer=False):
+    submenu=None, header=False, display_value_function=None, chooseable=False, spacer=False, 
+    submenu_refresh_function=None):
         self.text = text
         self.function = function
         self.function_args = function_args
@@ -25,6 +26,7 @@ class UIElement():
         self.chooseable = chooseable
         self.chosen = False
         self.spacer = spacer
+        self.submenu_refresh_function = submenu_refresh_function
         
     def get_display_value(self):
         if self.display_value_function:
@@ -33,6 +35,11 @@ class UIElement():
     
     def back(self):
         self.entered = False
+        
+    def enter(self):
+        self.entered = True
+        if self.submenu_refresh_function:
+            self.submenu = self.submenu_refresh_function()
 
         
 class MenuRenderer():
@@ -228,7 +235,7 @@ class MenuRenderer():
             if element.selected:
                 if element.submenu:
                     print("entering submenu: ", element.submenu)
-                    element.entered = True
+                    element.enter()
                 elif element.chooseable:
                     element.chosen = True
                     # Unchoose all other elements in the column
