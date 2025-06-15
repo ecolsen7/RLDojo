@@ -299,7 +299,13 @@ class CustomPlaylistManager:
     
     def get_custom_playlists(self):
         """Get all custom playlists"""
-        return self.custom_playlists
+        # Load all custom playlists from disk
+        custom_playlists = {}
+        for file in os.listdir(_get_custom_playlists_path()):
+            if file.endswith(".json"):
+                with open(os.path.join(_get_custom_playlists_path(), file), "r") as f:
+                    custom_playlists[file.replace(".json", "")] = Playlist.model_validate_json(f.read())
+        return custom_playlists
     
     def delete_custom_playlist(self, name):
         """Delete a custom playlist"""

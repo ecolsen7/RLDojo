@@ -127,7 +127,7 @@ class Dojo(BaseScript):
         
         # Playlist menu
         self.playlist_menu = self.create_playlist_menu()
-        self.menu_renderer.add_element(UIElement('Select Playlist', submenu=self.playlist_menu))
+        self.menu_renderer.add_element(UIElement('Select Playlist', submenu=self.playlist_menu, submenu_refresh_function=self.create_playlist_menu))
         
         # Custom playlist creation menu
         if self.custom_playlist_manager:
