@@ -7,6 +7,7 @@ from scenario import Scenario, OffensiveMode, DefensiveMode
 from config.constants import BACK_WALL, GOAL_DETECTION_THRESHOLD, BALL_GROUND_THRESHOLD, FREE_GOAL_TIMEOUT
 from playlist import PlaylistRegistry, PlayerRole
 import utils
+import time
 
 
 class ScenarioMode(BaseGameMode):
@@ -16,11 +17,20 @@ class ScenarioMode(BaseGameMode):
         super().__init__(game_state, game_interface)
         self.rlbot_game_state = None
         self.prev_time = 0
-        self.playlist_registry = PlaylistRegistry()
+        self.playlist_registry = None  # Will be set via set_playlist_registry
         self.current_playlist = None
+        self.last_menu_phase_time = 0
+    
+    def set_playlist_registry(self, registry):
+        """Set the playlist registry to use"""
+        self.playlist_registry = registry
     
     def set_playlist(self, playlist_name):
         """Set the active playlist"""
+        if not self.playlist_registry:
+            print("Error: Playlist registry not set")
+            return
+            
         self.current_playlist = self.playlist_registry.get_playlist(playlist_name)
         if self.current_playlist:
             self.game_state.timeout = self.current_playlist.settings.timeout
@@ -49,6 +59,7 @@ class ScenarioMode(BaseGameMode):
             ScenarioPhase.INIT: self._handle_init_phase,
             ScenarioPhase.SETUP: self._handle_setup_phase,
             ScenarioPhase.MENU: self._handle_menu_phase,
+            ScenarioPhase.EXITING_MENU: self._handle_menu_exiting_phase,
             ScenarioPhase.PAUSED: self._handle_paused_phase,
             ScenarioPhase.ACTIVE: self._handle_active_phase,
             ScenarioPhase.CUSTOM_OFFENSE: self._handle_custom_phase,
@@ -80,6 +91,18 @@ class ScenarioMode(BaseGameMode):
     def _handle_menu_phase(self, packet):
         """Handle menu phase - freeze game state"""
         if self.rlbot_game_state:
+            self.set_game_state(self.rlbot_game_state)
+        self.last_menu_phase_time = time.time()
+            
+    def _handle_menu_exiting_phase(self, packet):
+        """Unfreeze game state after a 3 second countdown"""
+        # For each second, render a countdown from 3 to 1
+        if time.time() - self.last_menu_phase_time > 3:
+            self.game_state.game_phase = ScenarioPhase.ACTIVE
+        else:
+            self.game_interface.renderer.begin_rendering()
+            self.game_interface.renderer.draw_string_2d(850, 200, 15, 15, str(3 - int(time.time() - self.last_menu_phase_time)), self.game_interface.renderer.white())
+            self.game_interface.renderer.end_rendering()
             self.set_game_state(self.rlbot_game_state)
     
     def _handle_paused_phase(self, packet):
