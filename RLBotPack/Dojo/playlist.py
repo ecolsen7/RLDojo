@@ -28,6 +28,11 @@ from scenario import OffensiveMode, DefensiveMode
 from pydantic import BaseModel, Field, ValidationError
 from typing import List, Optional, Tuple
 
+EXTERNAL_MENU_START_X = 1200
+EXTERNAL_MENU_START_Y = 200
+EXTERNAL_MENU_WIDTH = 500
+EXTERNAL_MENU_HEIGHT = 800
+
 class PlayerRole(Enum):
     OFFENSE = 0
     DEFENSE = 1
@@ -78,9 +83,35 @@ class Playlist(BaseModel):
     def _shuffle_scenarios(self):
         """Shuffle scenario order"""
         np.random.shuffle(self.scenarios)
+        
+    def render_details(self, renderer):
+        """Render the playlist details"""
+        if not renderer:
+            return
+        
+        renderer.draw_rect_2d(EXTERNAL_MENU_START_X, EXTERNAL_MENU_START_Y, EXTERNAL_MENU_WIDTH, EXTERNAL_MENU_HEIGHT, False, renderer.black())
+        print_start_x = EXTERNAL_MENU_START_X + 10
+        print_start_y = EXTERNAL_MENU_START_Y + 10
+        text_color = renderer.white()
+        renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, "Playlist Details", text_color)
+        print_start_y += 20
+        renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Name: {self.name}", text_color)
+        print_start_y += 20
+        num_scenarios = len(self.scenarios)
+        num_scenarios_text = str(num_scenarios)
+        renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Scenarios: {num_scenarios_text}", text_color)
+        print_start_y += 20
+        for scenario in self.scenarios:
+            renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"{scenario.offensive_mode.name} vs {scenario.defensive_mode.name}", text_color)
+            print_start_y += 20
+        if self.settings:
+            renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Boost Range: {self.settings.boost_range[0]}-{self.settings.boost_range[1]}", text_color)
+            print_start_y += 20
+            renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Timeout: {self.settings.timeout}s", text_color)
+            print_start_y += 20
 
 class PlaylistRegistry:
-    def __init__(self):
+    def __init__(self, renderer=None):
         self.playlists = {}
         self.custom_playlist_manager = None
         self._register_default_playlists()

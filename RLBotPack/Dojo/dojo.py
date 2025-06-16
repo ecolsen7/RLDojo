@@ -15,6 +15,7 @@ import modifier
 import utils
 from record.race import RaceRecord, RaceRecords, get_race_records
 from custom_playlist import CustomPlaylistManager
+from playlist import PlaylistRegistry, PlayerRole
 
 class Dojo(BaseScript):
     """
@@ -47,6 +48,7 @@ class Dojo(BaseScript):
         
         # Custom playlist manager
         self.custom_playlist_manager = None
+        self.playlist_registry = None  # Will be initialized after game interface is available
         
         # Internal state
         self.rlbot_game_state = None
@@ -92,8 +94,10 @@ class Dojo(BaseScript):
         # Initialize UI renderer
         self.ui_renderer = UIRenderer(self.game_interface.renderer, self.game_state)
         
-        # Initialize custom playlist manager
+        # Initialize custom playlist manager and playlist registry
         self.custom_playlist_manager = CustomPlaylistManager(renderer=self.game_interface.renderer, main_menu_renderer=self.menu_renderer)
+        self.playlist_registry = PlaylistRegistry(self.game_interface.renderer)
+        self.playlist_registry.set_custom_playlist_manager(self.custom_playlist_manager)
         
         # Initialize game modes
         self.scenario_mode = ScenarioMode(self.game_state, self.game_interface)
@@ -101,7 +105,7 @@ class Dojo(BaseScript):
         self.current_mode = self.scenario_mode
         
         # Set up custom playlist manager with scenario mode
-        self.scenario_mode.playlist_registry.set_custom_playlist_manager(self.custom_playlist_manager)
+        self.scenario_mode.set_playlist_registry(self.playlist_registry)
         
         # Initialize menu system
         self._setup_menus()
@@ -121,7 +125,6 @@ class Dojo(BaseScript):
         self.menu_renderer.is_root = True
         self.menu_renderer.add_element(UIElement('Main Menu', header=True))
         self.menu_renderer.add_element(UIElement('Reset Score', function=self._clear_score))
-        self.menu_renderer.add_element(UIElement('Toggle Mirror', function=self._toggle_mirror))
         self.menu_renderer.add_element(UIElement('Freeze Scenario', function=self._toggle_freeze_scenario))
         self.menu_renderer.add_element(UIElement('Create Custom Mode', function=self._create_custom_mode))
         
@@ -135,19 +138,25 @@ class Dojo(BaseScript):
             self.menu_renderer.add_element(UIElement('Create Custom Playlist', submenu=custom_playlist_menu))
         
         # Preset mode menu
-        self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=2)
+        self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=3)
         self.preset_mode_menu.add_element(UIElement('Offensive Mode', header=True), column=0)
         for mode in OffensiveMode:
             self.preset_mode_menu.add_element(
-                UIElement(mode.name, function=self._select_offensive_mode, function_args=mode), 
+                UIElement(mode.name, function=self._select_offensive_mode, function_args=mode, chooseable=True), 
                 column=0
             )
         self.preset_mode_menu.add_element(UIElement('Defensive Mode', header=True), column=1)
         for mode in DefensiveMode:
             self.preset_mode_menu.add_element(
-                UIElement(mode.name, function=self._select_defensive_mode, function_args=mode), 
+                UIElement(mode.name, function=self._select_defensive_mode, function_args=mode, chooseable=True), 
                 column=1
             )
+        # Third column for player role
+        self.preset_mode_menu.add_element(UIElement('Player Role', header=True), column=2)
+        self.preset_mode_menu.add_element(UIElement('Offense', function=self._set_player_role, function_args=PlayerRole.OFFENSE, chooseable=True), column=2)
+        self.preset_mode_menu.add_element(UIElement('Defense', function=self._set_player_role, function_args=PlayerRole.DEFENSE, chooseable=True), column=2)
+        self.preset_mode_menu.add_element(UIElement('', header=True), column=2)  # Spacer
+        self.preset_mode_menu.add_element(UIElement('Confirm Scenario', function=self._handle_back), column=2)
         self.menu_renderer.add_element(UIElement('Select Preset Mode', submenu=self.preset_mode_menu))
         
         # Race mode menu
@@ -384,6 +393,15 @@ class Dojo(BaseScript):
             self.game_state.game_phase = ScenarioPhase.SETUP
         elif hasattr(self.current_mode, '_set_next_game_state'):
             self.current_mode._set_next_game_state()
+            
+    def _set_player_role(self, role):
+        """Set the player role"""
+        if role == PlayerRole.OFFENSE:
+            self.game_state.mirrored = True
+        else:
+            self.game_state.mirrored = False
+        if hasattr(self.current_mode, '_set_next_game_state'):
+            self.current_mode._set_next_game_state()
     
     def _set_race_mode(self, trials):
         """Set race mode with specified number of trials"""
@@ -402,12 +420,12 @@ class Dojo(BaseScript):
         """Toggle menu visibility"""
         if self.game_state.gym_mode == GymMode.RACE:
             if self.game_state.game_phase == RacePhase.MENU:
-                self.game_state.game_phase = RacePhase.ACTIVE
+                self.game_state.game_phase = RacePhase.EXITING_MENU
             else:
                 self.game_state.game_phase = RacePhase.MENU
         elif self.game_state.gym_mode == GymMode.SCENARIO:
             if self.game_state.game_phase == ScenarioPhase.MENU:
-                self.game_state.game_phase = ScenarioPhase.PAUSED
+                self.game_state.game_phase = ScenarioPhase.EXITING_MENU
             else:
                 self.game_state.game_phase = ScenarioPhase.MENU
     
@@ -539,17 +557,16 @@ class Dojo(BaseScript):
     def create_playlist_menu(self):
         """Create playlist selection submenu"""
         # Refresh custom playlists to include any newly created ones
-        if hasattr(self.scenario_mode, 'playlist_registry'):
-            self.scenario_mode.playlist_registry.refresh_custom_playlists()
+        self.playlist_registry.refresh_custom_playlists()
         
         playlist_menu = MenuRenderer(self.game_interface.renderer, columns=1)
         playlist_menu.add_element(UIElement("Select Playlist", header=True))
         
         # Add each playlist as a menu option
-        for playlist_name in self.scenario_mode.playlist_registry.list_playlists():
+        for playlist_name in self.playlist_registry.list_playlists():
             print(f"Playlist name: {playlist_name}")
-            print(f"Retrieved playlist: {self.scenario_mode.playlist_registry.get_playlist(playlist_name)}")
-            playlist = self.scenario_mode.playlist_registry.get_playlist(playlist_name)
+            print(f"Retrieved playlist: {self.playlist_registry.get_playlist(playlist_name)}")
+            playlist = self.playlist_registry.get_playlist(playlist_name)
             playlist_menu.add_element(UIElement(
                 f"{playlist.name}",
                 function=self.set_playlist,
