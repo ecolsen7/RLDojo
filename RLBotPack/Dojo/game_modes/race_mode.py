@@ -15,6 +15,7 @@ class RaceMode(BaseGameMode):
         super().__init__(game_state, game_interface)
         self.race = None
         self.rlbot_game_state = None
+        self.last_menu_phase_time = 0
     
     def initialize(self):
         """Initialize race mode"""
@@ -65,6 +66,7 @@ class RaceMode(BaseGameMode):
             RacePhase.SETUP: self._handle_setup_phase,
             RacePhase.ACTIVE: self._handle_active_phase,
             RacePhase.MENU: self._handle_menu_phase,
+            RacePhase.EXITING_MENU: self._handle_menu_exiting_phase,
             RacePhase.FINISHED: self._handle_finished_phase,
         }
         
@@ -102,6 +104,18 @@ class RaceMode(BaseGameMode):
     def _handle_menu_phase(self, packet):
         """Handle menu phase"""
         self.set_game_state(self.rlbot_game_state)
+        self.last_menu_phase_time = time.time()
+        
+    def _handle_menu_exiting_phase(self, packet):
+        """Unfreeze game state after a 3 second countdown"""
+        # For each second, render a countdown from 3 to 1
+        if time.time() - self.last_menu_phase_time > 3:
+            self.game_state.game_phase = RacePhase.ACTIVE
+        else:
+            self.game_interface.renderer.begin_rendering()
+            self.game_interface.renderer.draw_string_2d(850, 200, 15, 15, str(3 - int(time.time() - self.last_menu_phase_time)), self.game_interface.renderer.white())
+            self.game_interface.renderer.end_rendering()
+            self.set_game_state(self.rlbot_game_state)
     
     def _handle_finished_phase(self, packet):
         """Handle finished phase - save records and restart"""

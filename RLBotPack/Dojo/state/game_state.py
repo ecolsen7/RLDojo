@@ -29,10 +29,11 @@ class ScenarioPhase(Enum):
     SETUP = 0
     ACTIVE = 1
     MENU = 2
-    CUSTOM_OFFENSE = 3
-    CUSTOM_BALL = 4
-    CUSTOM_DEFENSE = 5
-    FINISHED = 6
+    EXITING_MENU = 3
+    CUSTOM_OFFENSE = 4
+    CUSTOM_BALL = 5
+    CUSTOM_DEFENSE = 6
+    FINISHED = 7
 
 
 class RacePhase(Enum):
@@ -40,7 +41,8 @@ class RacePhase(Enum):
     SETUP = 0
     ACTIVE = 1
     MENU = 2
-    FINISHED = 3
+    EXITING_MENU = 3
+    FINISHED = 4
 
 
 class CarIndex(Enum):

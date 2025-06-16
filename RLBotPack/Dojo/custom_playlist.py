@@ -13,11 +13,6 @@ from scenario import OffensiveMode, DefensiveMode
 from menu import MenuRenderer, UIElement
 from pydantic import BaseModel, Field, ValidationError
 
-EXTERNAL_MENU_START_X = 1200
-EXTERNAL_MENU_START_Y = 200
-EXTERNAL_MENU_WIDTH = 500
-EXTERNAL_MENU_HEIGHT = 800
-
 class CustomPlaylistManager:
     def __init__(self, renderer, main_menu_renderer):
         self.renderer = renderer
@@ -67,34 +62,19 @@ class CustomPlaylistManager:
     def get_current_playlist_rule_zero(self):
         return self.current_rule_zero
 
-    ###
-    
     def _render_playlist_details(self):
-        """Render the playlist details"""
-        self.renderer.draw_rect_2d(EXTERNAL_MENU_START_X, EXTERNAL_MENU_START_Y, EXTERNAL_MENU_WIDTH, EXTERNAL_MENU_HEIGHT, False, self.renderer.black())
-        print_start_x = EXTERNAL_MENU_START_X + 10
-        print_start_y = EXTERNAL_MENU_START_Y + 10
-        text_color = self.renderer.white()
-        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, "Playlist Details", text_color)
-        print_start_y += 20
-        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Name: {self.current_playlist_name}", text_color)
-        print_start_y += 20
-        num_scenarios = len(self.current_scenarios)
-        num_scenarios_text = str(num_scenarios)
-        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Scenarios: {num_scenarios_text}", text_color)
-        print_start_y += 20
-        for scenario in self.current_scenarios:
-            self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"{scenario.offensive_mode.name.replace('_', ' ').title()} vs {scenario.defensive_mode.name.replace('_', ' ').title()} ({scenario.player_role.name})", text_color)
-            print_start_y += 20
-        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Boost Range: {self.current_boost_range[0]}-{self.current_boost_range[1]}", text_color)
-        print_start_y += 20
-        self.renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Timeout: {self.current_timeout}s", text_color)
-        print_start_y += 20
+        # Create a playlist out of current settings
+        playlist = Playlist(
+            name=self.current_playlist_name,
+            description=f"Custom playlist with {len(self.current_scenarios)} scenarios",
+            scenarios=self.current_scenarios.copy(),
+            settings=PlaylistSettings(timeout=self.current_timeout, shuffle=True, boost_range=self.current_boost_range, rule_zero=self.current_rule_zero)
+        )
+        playlist.render_details(self.renderer)
     
     def _create_name_input_menu(self):
         """Create menu for setting playlist name"""
         menu = MenuRenderer(self.renderer, columns=1, text_input=True, text_input_callback=self._set_playlist_name)
-        # menu.add_element(UIElement("Enter Playlist Name", header=True))
         return menu
     
     def _create_scenario_selection_menu(self):
@@ -143,7 +123,7 @@ class CustomPlaylistManager:
     
     def _create_boost_range_menu(self):
         """Create menu for setting boost range"""
-        menu = MenuRenderer(self.renderer, columns=2)
+        menu = MenuRenderer(self.renderer, columns=2, render_function=self._render_playlist_details)
         
         # Column 1: Min boost
         menu.add_element(UIElement("Min Boost", header=True), column=0)
@@ -167,7 +147,7 @@ class CustomPlaylistManager:
     
     def _create_timeout_menu(self):
         """Create menu for setting timeout"""
-        menu = MenuRenderer(self.renderer, columns=1)
+        menu = MenuRenderer(self.renderer, columns=1, render_function=self._render_playlist_details)
         menu.add_element(UIElement("Set Timeout (seconds)", header=True))
         
         for timeout in [5.0, 7.0, 10.0, 15.0, 20.0, 30.0]:
