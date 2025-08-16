@@ -1,0 +1,19 @@
+{
+	"recommendations": [
+		{
+			"bots": ["Nexto"]
+		},
+		{
+			"bots": ["Necto"]
+		},
+		{
+			"bots": ["Element"]
+		},
+		{
+			"bots": ["Nexto", "Nexto"]
+		},
+		{
+			"bots": ["Nexto", "Nexto", "Nexto"]
+		}
+	]
+}
