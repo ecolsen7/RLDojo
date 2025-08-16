@@ -1,0 +1,12 @@
+__pycache__/
+desktop.ini
+.idea/
+RLBot_Core_Interface.dll
+*.iml
+rlbot.cfg
+RefreshEnv.cmd
+.git/
+*.pdb
+*.cs
+*.csproj
+*.sln
