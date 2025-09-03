@@ -3,9 +3,9 @@ import time
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
 from .base_mode import BaseGameMode
-from state.game_state import RacePhase, CarIndex
+from game_state import RacePhase, CarIndex
 import race
-from record.race import RaceRecord, RaceRecords, store_race_records
+from race_record import RaceRecord, RaceRecords, store_race_records
 
 
 class RaceMode(BaseGameMode):

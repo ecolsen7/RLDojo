@@ -2,9 +2,9 @@ import numpy as np
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
 from .base_mode import BaseGameMode
-from state.game_state import ScenarioPhase, CarIndex, CUSTOM_MODES
+from game_state import ScenarioPhase, CarIndex, CUSTOM_MODES
 from scenario import Scenario, OffensiveMode, DefensiveMode
-from config.constants import BACK_WALL, GOAL_DETECTION_THRESHOLD, BALL_GROUND_THRESHOLD, FREE_GOAL_TIMEOUT
+from constants import BACK_WALL, GOAL_DETECTION_THRESHOLD, BALL_GROUND_THRESHOLD, FREE_GOAL_TIMEOUT
 from playlist import PlaylistRegistry, PlayerRole
 import utils
 import time
@@ -65,6 +65,7 @@ class ScenarioMode(BaseGameMode):
             ScenarioPhase.CUSTOM_OFFENSE: self._handle_custom_phase,
             ScenarioPhase.CUSTOM_BALL: self._handle_custom_phase,
             ScenarioPhase.CUSTOM_DEFENSE: self._handle_custom_phase,
+            ScenarioPhase.CUSTOM_NAMING: self._handle_custom_phase,
         }
         
         handler = phase_handlers.get(self.game_state.game_phase)
@@ -148,11 +149,7 @@ class ScenarioMode(BaseGameMode):
         if scenario_config:
             self.game_state.offensive_mode = scenario_config.offensive_mode
             self.game_state.defensive_mode = scenario_config.defensive_mode
-            
-            # Set mirrored based on player role
-            # If player is on defense, mirror so they defend the correct goal
-            # Default "non-mirrored" is defense
-            self.game_state.mirrored = (scenario_config.player_role == PlayerRole.OFFENSE)
+            self.game_state.player_offense = (scenario_config.player_role == PlayerRole.OFFENSE)
     
     def _set_next_game_state(self):
         """Create and set the next scenario game state"""
@@ -166,7 +163,7 @@ class ScenarioMode(BaseGameMode):
                 print(f"Using playlist boost range: {boost_range}")
             
             scenario = Scenario(self.game_state.offensive_mode, self.game_state.defensive_mode, boost_range=boost_range)
-            if self.game_state.mirrored:
+            if self.game_state.player_offense:
                 scenario.Mirror()
             
             self.game_state.scenario_history.append(scenario)
@@ -210,7 +207,7 @@ class ScenarioMode(BaseGameMode):
     
     def _award_defensive_goal(self):
         """Award a goal to the defensive team"""
-        if self.game_state.mirrored:
+        if self.game_state.player_offense:
             self.game_state.bot_score += 1
         else:
             self.game_state.human_score += 1 

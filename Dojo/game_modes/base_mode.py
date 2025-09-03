@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from state.game_state import DojoGameState
+    from game_state import DojoGameState
 
 
 class BaseGameMode(ABC):
@@ -43,7 +43,7 @@ class BaseGameMode(ABC):
     
     def get_team_scored(self, packet) -> int:
         """Determine which team scored"""
-        from state.game_state import CarIndex
+        from game_state import CarIndex
         
         team_scores = tuple(map(lambda x: x.score, packet.teams))
         human_score = team_scores[CarIndex.HUMAN.value]

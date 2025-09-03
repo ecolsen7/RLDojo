@@ -2,7 +2,7 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import List, Optional
 from scenario import Scenario, OffensiveMode, DefensiveMode
-from record.race import RaceRecord, RaceRecords
+from race_record import RaceRecord, RaceRecords
 
 
 class CustomUpDownSelection(Enum):
@@ -16,7 +16,15 @@ class CustomLeftRightSelection(Enum):
     X = 1
     YAW = 2
     ROLL = 3
-
+    BOOST = 4
+    
+# List of the left/right + up/down states
+CUSTOM_SELECTION_LIST = [
+    [CustomLeftRightSelection.X, CustomUpDownSelection.Y],
+    [CustomLeftRightSelection.YAW, CustomUpDownSelection.Z],
+    [CustomLeftRightSelection.ROLL, CustomUpDownSelection.PITCH],
+    [CustomLeftRightSelection.BOOST, CustomUpDownSelection.VELOCITY],
+]
 
 class GymMode(Enum):
     SCENARIO = 1
@@ -33,7 +41,8 @@ class ScenarioPhase(Enum):
     CUSTOM_OFFENSE = 4
     CUSTOM_BALL = 5
     CUSTOM_DEFENSE = 6
-    FINISHED = 7
+    CUSTOM_NAMING = 7
+    FINISHED = 8
 
 
 class RacePhase(Enum):
@@ -69,7 +78,7 @@ class DojoGameState:
     # Scenario settings
     offensive_mode: OffensiveMode = OffensiveMode.POSSESSION
     defensive_mode: DefensiveMode = DefensiveMode.NEAR_SHADOW
-    mirrored: bool = False
+    player_offense: bool = True
     freeze_scenario: bool = False
     freeze_scenario_index: int = 0
     scenario_history: List[Scenario] = None
@@ -77,6 +86,7 @@ class DojoGameState:
     # Custom mode selections
     custom_updown_selection: CustomUpDownSelection = CustomUpDownSelection.Y
     custom_leftright_selection: CustomLeftRightSelection = CustomLeftRightSelection.X
+    custom_selection_index: int = 0
     
     # Scores and timing
     human_score: int = 0
@@ -111,8 +121,8 @@ class DojoGameState:
         self.bot_score = 0
     
     def toggle_mirror(self):
-        """Toggle the mirrored state"""
-        self.mirrored = not self.mirrored
+        """Toggle the player role state"""
+        self.player_offense = not self.player_offense
     
     def toggle_freeze_scenario(self):
         """Toggle scenario freezing"""
