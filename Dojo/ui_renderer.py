@@ -1,6 +1,6 @@
 from typing import Optional
-from state.game_state import DojoGameState, GymMode, ScenarioPhase, CUSTOM_MODES
-from config.constants import (
+from game_state import DojoGameState, GymMode, ScenarioPhase, CUSTOM_MODES
+from constants import (
     SCORE_BOX_START_X, SCORE_BOX_START_Y, SCORE_BOX_WIDTH, SCORE_BOX_HEIGHT,
     CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y, CUSTOM_MODE_MENU_WIDTH, CUSTOM_MODE_MENU_HEIGHT,
     CONTROLS_MENU_WIDTH, CONTROLS_MENU_HEIGHT
@@ -31,6 +31,10 @@ class UIRenderer:
             scores = f"Human: {self.game_state.human_score} Bot: {self.game_state.bot_score}"
             total_score = f"Total: {self.game_state.human_score + self.game_state.bot_score}"
             time_since_start = f"Time: {minutes}:{seconds_str}"
+            offensive_mode_name = f"Offensive Mode: {self.game_state.offensive_mode.name}"
+            defensive_mode_name = f"Defensive Mode: {self.game_state.defensive_mode.name}"
+            player_role_name = "offense" if self.game_state.player_offense else "defense"
+            player_role_string = f"Player Role: {player_role_name}"
             previous_record = ""
         elif self.game_state.gym_mode == GymMode.RACE:
             scores = f"Completed: {self.game_state.human_score}"
@@ -72,77 +76,29 @@ class UIRenderer:
             SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 100, 
             1, 1, previous_record, self.renderer.black()
         )
-        
+        if self.game_state.gym_mode == GymMode.SCENARIO:
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 130, 
+                1, 1, offensive_mode_name, self.renderer.black()
+            )
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 160, 
+                1, 1, defensive_mode_name, self.renderer.black()
+            )
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 190, 
+                1, 1, player_role_string, self.renderer.black()
+            )
         self.renderer.end_rendering()
     
-    def render_custom_sandbox_ui(self, rlbot_game_state):
-        """Render the custom sandbox UI"""
-        if self.game_state.game_phase not in CUSTOM_MODES:
-            return
-        
-        # Determine object name
-        object_name = ""
-        if self.game_state.game_phase == ScenarioPhase.CUSTOM_OFFENSE:
-            object_name = "Offensive Car"
-        elif self.game_state.game_phase == ScenarioPhase.CUSTOM_BALL:
-            object_name = "Ball"
-        elif self.game_state.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
-            object_name = "Defensive Car"
-        
-        # Instruction text
-        text = f"""Custom Mode Sandbox: {object_name}
-[x] modify x coordinate
-[y] modify y coordinate
-[z] modify z coordinate
-[p] modify pitch
-[y] modify yaw
-[r] modify roll
-[v] modify velocity
-[n] next step
-[b] previous step"""
-        
-        self.renderer.begin_rendering()
-        
-        # Main instruction box
-        self.renderer.draw_rect_2d(
-            CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y,
-            CUSTOM_MODE_MENU_WIDTH, CUSTOM_MODE_MENU_HEIGHT,
-            True, self.renderer.black()
-        )
-        self.renderer.draw_string_2d(
-            CUSTOM_MODE_MENU_START_X, CUSTOM_MODE_MENU_START_Y,
-            1, 1, text, self.renderer.white()
-        )
-        
-        # Controls box
-        controls_start_y = CUSTOM_MODE_MENU_START_Y + CUSTOM_MODE_MENU_HEIGHT + 100
-        self.renderer.draw_rect_2d(
-            CUSTOM_MODE_MENU_START_X, controls_start_y,
-            CONTROLS_MENU_WIDTH, CONTROLS_MENU_HEIGHT,
-            True, self.renderer.black()
-        )
-        
-        controls_text = f"""Controls (use arrow keys)
-           ^ +{self.game_state.custom_updown_selection.name}
- -{self.game_state.custom_leftright_selection.name}<            >+{self.game_state.custom_leftright_selection.name}
-           v -{self.game_state.custom_updown_selection.name}"""
-        
-        self.renderer.draw_string_2d(
-            CUSTOM_MODE_MENU_START_X, controls_start_y,
-            1, 1, controls_text, self.renderer.white()
-        )
-        
-        # Render velocity vectors
-        self._render_velocity_vectors(rlbot_game_state)
-        
-        self.renderer.end_rendering()
+   
     
-    def _render_velocity_vectors(self, rlbot_game_state):
+    def render_velocity_vectors(self, rlbot_game_state):
         """Render velocity vectors for all objects in custom mode"""
         if not rlbot_game_state:
             return
         
-        from state.game_state import CarIndex
+        from game_state import CarIndex
         
         # Human car velocity vector
         if CarIndex.HUMAN.value in rlbot_game_state.cars:

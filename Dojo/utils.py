@@ -8,6 +8,13 @@ ORANGE_WALL=5120
 
 BACK_WALL=BLUE_WALL
 
+def hasattrdeep(obj, *names):
+    for name in names:
+       if not hasattr(obj, name):
+            return False
+       obj = getattr(obj, name)
+    return True
+
 def get_velocity_from_yaw(yaw, min_velocity, max_velocity):
     # yaw is in radians, use this to get the ratio of x/y velocity
     # X = cos(yaw) 

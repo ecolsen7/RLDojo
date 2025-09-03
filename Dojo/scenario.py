@@ -38,9 +38,9 @@ class Scenario:
         Create a new scenario based on the game mode
         '''
         self.offensive_team = 0
-        self.offensive_car_state = None
-        self.defensive_car_state = None
-        self.ball_state = None
+        self.offensive_car_state = CarState()
+        self.defensive_car_state = CarState()
+        self.ball_state = BallState()
         self.play_yaw = None
         match offensive_mode:
             case OffensiveMode.POSSESSION:

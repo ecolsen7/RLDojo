@@ -44,7 +44,7 @@ class UIElement():
         
 class MenuRenderer():
     def __init__(self, renderer, columns=1, text_input=False, 
-    text_input_callback=None, render_function=None, show_selections=False):
+    text_input_callback=None, render_function=None, show_selections=False, disable_menu_render=False):
         self.renderer = renderer
         # Each column has its own list of elements
         self.elements = [[] for _ in range(columns)]
@@ -57,7 +57,8 @@ class MenuRenderer():
         self.text_input_value = ""
         self.text_input_callback = text_input_callback
         self.show_selections = show_selections
-            
+        self.disable_menu_render = disable_menu_render
+        
         # Allows for an element to be rendered outside of the menu when selected
         self.render_function = render_function
         
@@ -233,6 +234,11 @@ class MenuRenderer():
                 return
         for element in self.elements[self.active_column]:
             if element.selected:
+                if element.function:
+                    if element.function_args:
+                        element.function(element.function_args)
+                    else:
+                        element.function()
                 if element.submenu:
                     print("entering submenu: ", element.submenu)
                     element.enter()
@@ -242,11 +248,6 @@ class MenuRenderer():
                     for other_element in self.elements[self.active_column]:
                         if other_element != element:
                             other_element.chosen = False
-                if element.function:
-                    if element.function_args:
-                        element.function(element.function_args)
-                    else:
-                        element.function()
                 break
 
     def handle_back_key(self):
@@ -261,6 +262,10 @@ class MenuRenderer():
                 if element.entered:
                     return element.submenu.is_in_text_input_mode()
         return False
+    
+    def render_text_input_menu(self, callback):
+        self.text_input_callback = callback
+        self.is_text_input_menu = True
 
     def render_menu(self):
         # If no elements are selected the first time we render the menu, select the first non-header element
@@ -295,6 +300,18 @@ class MenuRenderer():
         MENU_HEIGHT = 500
         COLUMN_WIDTH = MENU_WIDTH / self.columns
         max_visible_elements = self._get_max_visible_elements()
+        
+        # Print details about this menu for debugging
+        print(f"Menu details:")
+        print(f"  - is_text_input_menu: {self.is_text_input_menu}")
+        print(f"  - disable_menu_render: {self.disable_menu_render}")
+        print(f"  - render_function: {self.render_function}")
+        
+        # If menu renderer is disabled, only render the external function
+        if self.disable_menu_render and self.render_function:
+            print(f"Rendering external function")
+            self.render_function()
+            return
         
         self.renderer.begin_rendering()
         self.renderer.draw_rect_2d(MENU_START_X, MENU_START_Y, MENU_WIDTH, MENU_HEIGHT, False, self.renderer.black())

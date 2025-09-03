@@ -5,17 +5,18 @@ from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
 # Import our new modular components
-from state.game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_MODES, CustomUpDownSelection, CustomLeftRightSelection
+from game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_SELECTION_LIST, CUSTOM_MODES
 from game_modes import ScenarioMode, RaceMode
-from rendering import UIRenderer
+from ui_renderer import UIRenderer
 from menu import MenuRenderer, UIElement
 from scenario import Scenario, OffensiveMode, DefensiveMode
-from config.constants import DEFAULT_TRIAL_OPTIONS, DEFAULT_NUM_TRIALS, DEFAULT_PAUSE_TIME
+import constants
 import modifier
 import utils
-from record.race import RaceRecord, RaceRecords, get_race_records
+from race_record import RaceRecord, RaceRecords, get_race_records
 from custom_playlist import CustomPlaylistManager
 from playlist import PlaylistRegistry, PlayerRole
+from custom_scenario import render_custom_sandbox_ui
 
 class Dojo(BaseScript):
     """
@@ -116,7 +117,7 @@ class Dojo(BaseScript):
         self._setup_keyboard_handlers()
         
         # Set initial pause time
-        self.game_state.pause_time = DEFAULT_PAUSE_TIME
+        self.game_state.pause_time = constants.DEFAULT_PAUSE_TIME
     
     def _setup_menus(self):
         """Set up all menu systems"""
@@ -126,7 +127,6 @@ class Dojo(BaseScript):
         self.menu_renderer.add_element(UIElement('Main Menu', header=True))
         self.menu_renderer.add_element(UIElement('Reset Score', function=self._clear_score))
         self.menu_renderer.add_element(UIElement('Freeze Scenario', function=self._toggle_freeze_scenario))
-        self.menu_renderer.add_element(UIElement('Create Custom Mode', function=self._create_custom_mode))
         
         # Playlist menu
         self.playlist_menu = self.create_playlist_menu()
@@ -136,6 +136,11 @@ class Dojo(BaseScript):
         if self.custom_playlist_manager:
             custom_playlist_menu = self.custom_playlist_manager.create_playlist_creation_menu()
             self.menu_renderer.add_element(UIElement('Create Custom Playlist', submenu=custom_playlist_menu))
+            
+        # Custom scenario creation menu
+        custom_scenario_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
+        custom_scenario_menu.add_element(UIElement('Create Custom Scenario', header=True))
+        self.menu_renderer.add_element(UIElement('Create Custom Scenario', submenu=custom_scenario_menu, function=self._create_custom_mode))
         
         # Preset mode menu
         self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=3)
@@ -162,7 +167,7 @@ class Dojo(BaseScript):
         # Race mode menu
         self.race_mode_menu = MenuRenderer(self.game_interface.renderer)
         self.race_mode_menu.add_element(UIElement('Number of Trials', header=True))
-        for option in DEFAULT_TRIAL_OPTIONS:
+        for option in constants.DEFAULT_TRIAL_OPTIONS:
             self.race_mode_menu.add_element(
                 UIElement(str(option), function=self._set_race_mode, function_args=option)
             )
@@ -175,15 +180,8 @@ class Dojo(BaseScript):
         keyboard.add_hotkey('right', self._handle_right)
         keyboard.add_hotkey('down', self._handle_down)
         keyboard.add_hotkey('up', self._handle_up)
-        keyboard.add_hotkey('n', self._next_custom_step)
+        keyboard.add_hotkey('tab', self._handle_tab)
         keyboard.add_hotkey('b', self._handle_back)
-        keyboard.add_hotkey('x', self._custom_select_x)
-        keyboard.add_hotkey('y', self._custom_select_y)
-        keyboard.add_hotkey('z', self._custom_select_z)
-        keyboard.add_hotkey('p', self._custom_select_pitch)
-        keyboard.add_hotkey('Y', self._custom_select_yaw)
-        keyboard.add_hotkey('r', self._custom_select_roll)
-        keyboard.add_hotkey('v', self._custom_select_velocity)
         keyboard.add_hotkey('enter', self._enter_handler)
         
         # For all other letters, submit the letter as a text input
@@ -195,7 +193,7 @@ class Dojo(BaseScript):
         self._add_hotkey_with_arg('-', self._handle_text_input, '-')
         
         # Allow backspace in text input
-        keyboard.add_hotkey('backspace', self._handle_text_backspace)
+        keyboard.add_hotkey('backspace', self._handle_backspace)
         
     ### Keyboard handler utilities 
     def _add_hotkey_with_arg(self, hotkey, function, function_args):
@@ -208,6 +206,8 @@ class Dojo(BaseScript):
         """Handle enter key"""
         if self.menu_renderer.is_in_text_input_mode():
             self._complete_text_input()
+        elif self.game_state.is_in_custom_mode():
+            self._next_custom_step()
         else:
             self._enter_menu_element()
 
@@ -226,6 +226,13 @@ class Dojo(BaseScript):
         
         self.menu_renderer.complete_text_input()
         self.menu_renderer.handle_back_key()
+        
+    def _handle_tab(self):
+        """Handle tab key -- if in custom mode, cycle through the custom selection list"""
+        if self.menu_renderer.is_in_text_input_mode():
+            return
+        if self.game_state.is_in_custom_mode():
+            self._custom_cycle_selection()
 
     def _handle_left(self):
         """Handle left arrow key"""
@@ -265,68 +272,25 @@ class Dojo(BaseScript):
             self._prev_custom_step()
         else:
             self.menu_renderer.handle_back_key()
-
-    def _custom_select_x(self):
-        """Select X coordinate for custom mode"""
-        # If in text input mode, no-op
-        if self.menu_renderer.is_in_text_input_mode():
-            return
             
-        self.game_state.custom_leftright_selection = CustomLeftRightSelection.X
+    def _custom_cycle_selection(self):
+        """Cycle through the custom selection list"""
+        if self.game_state.custom_selection_index < len(CUSTOM_SELECTION_LIST) - 1:
+            self.game_state.custom_selection_index += 1
+        else:
+            self.game_state.custom_selection_index = 0
+            
+        self.game_state.custom_leftright_selection = CUSTOM_SELECTION_LIST[self.game_state.custom_selection_index][0]
+        self.game_state.custom_updown_selection = CUSTOM_SELECTION_LIST[self.game_state.custom_selection_index][1]
 
-    def _custom_select_y(self):
-        """Select Y coordinate for custom mode"""
-        # If in text input mode, no-op
-        if self.menu_renderer.is_in_text_input_mode():
-            return
-        
-        self.game_state.custom_updown_selection = CustomUpDownSelection.Y
-
-    def _custom_select_z(self):
-        """Select Z coordinate for custom mode"""
-        # If in text input mode, no-op
-        if self.menu_renderer.is_in_text_input_mode():
-            return
-        
-        self.game_state.custom_updown_selection = CustomUpDownSelection.Z
-
-    def _custom_select_pitch(self):
-        """Select pitch for custom mode"""
-        # If in text input mode, no-op
-        if self.menu_renderer.is_in_text_input_mode():
-            return
-        
-        self.game_state.custom_updown_selection = CustomUpDownSelection.PITCH
-
-    def _custom_select_yaw(self):
-        """Select yaw for custom mode"""
-        # If in text input mode, no-op
-        if self.menu_renderer.is_in_text_input_mode():
-            return
-        
-        self.game_state.custom_leftright_selection = CustomLeftRightSelection.YAW
-
-    def _custom_select_roll(self):
-        """Select roll for custom mode"""
-        # If in text input mode, no-op
-        if self.menu_renderer.is_in_text_input_mode():
-            return
-        
-        self.game_state.custom_leftright_selection = CustomLeftRightSelection.ROLL
-
-    def _custom_select_velocity(self):
-        """Select velocity for custom mode"""
-        # If in text input mode, no-op
-        if self.menu_renderer.is_in_text_input_mode():
-            return
-        
-        self.game_state.custom_updown_selection = CustomUpDownSelection.VELOCITY
-
-    def _handle_text_backspace(self):
+    def _handle_backspace(self):
         """Handle backspace in text input"""
-        if not self.menu_renderer.is_in_text_input_mode():
-            print(f"Not in text input mode, ignoring backspace")
-            return
+        if self.game_state.is_in_custom_mode():
+            self._prev_custom_step()
+        else:
+            if not self.menu_renderer.is_in_text_input_mode():
+                print(f"Not in text input mode, ignoring backspace")
+                return
         
         self.menu_renderer.handle_text_backspace()
 
@@ -337,6 +301,67 @@ class Dojo(BaseScript):
             return
         
         self.menu_renderer.handle_text_input(key)
+        
+    def _render_custom_sandbox_ui(self):
+        """Render the custom sandbox UI"""
+        
+        if self.game_state.game_phase not in CUSTOM_MODES:
+            return
+        
+        rlbot_game_state = None
+        if hasattr(self.current_mode, 'get_rlbot_game_state'):
+            rlbot_game_state = self.current_mode.get_rlbot_game_state()
+        
+        # Determine object name
+        object_name = ""
+        if self.game_state.game_phase == ScenarioPhase.CUSTOM_OFFENSE:
+            object_name = "Offensive Car"
+        elif self.game_state.game_phase == ScenarioPhase.CUSTOM_BALL:
+            object_name = "Ball"
+        elif self.game_state.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
+            object_name = "Defensive Car"
+        
+        # Instruction text
+        text = f"""Custom Mode Sandbox: {object_name}
+        [tab] cycle movement parameters
+        [enter] next object [offensive car -> ball -> defensive car]
+        [backspace] previous object"""
+        
+        self.renderer.begin_rendering()
+        
+        # Main instruction box
+        self.renderer.draw_rect_2d(
+            constants.CUSTOM_MODE_MENU_START_X, constants.CUSTOM_MODE_MENU_START_Y,
+            constants.CUSTOM_MODE_MENU_WIDTH, constants.CUSTOM_MODE_MENU_HEIGHT,
+            True, self.renderer.black()
+        )
+        self.renderer.draw_string_2d(
+            constants.CUSTOM_MODE_MENU_START_X, constants.CUSTOM_MODE_MENU_START_Y,
+            1, 1, text, self.renderer.white()
+        )
+        
+        # Controls box
+        controls_start_y = constants.CUSTOM_MODE_MENU_START_Y + constants.CUSTOM_MODE_MENU_HEIGHT + 100
+        self.renderer.draw_rect_2d(
+            constants.CUSTOM_MODE_MENU_START_X, controls_start_y,
+            constants.CONTROLS_MENU_WIDTH, constants.CONTROLS_MENU_HEIGHT,
+            True, self.renderer.black()
+        )
+        
+        controls_text = f"""Controls (use arrow keys)
+                ^ +{self.game_state.custom_updown_selection.name}
+        -{self.game_state.custom_leftright_selection.name}<            >+{self.game_state.custom_leftright_selection.name}
+                v -{self.game_state.custom_updown_selection.name}"""
+        
+        self.renderer.draw_string_2d(
+            constants.CUSTOM_MODE_MENU_START_X, controls_start_y,
+            1, 1, controls_text, self.renderer.white()
+        )
+        
+        # Render velocity vectors
+        self.ui_renderer.render_velocity_vectors(rlbot_game_state)
+        
+        self.renderer.end_rendering()
 
     def _render_ui(self):
         """Render all UI elements"""
@@ -349,11 +374,14 @@ class Dojo(BaseScript):
                 rlbot_game_state = None
                 if hasattr(self.current_mode, 'get_rlbot_game_state'):
                     rlbot_game_state = self.current_mode.get_rlbot_game_state()
-                self.ui_renderer.render_custom_sandbox_ui(rlbot_game_state)
+                # self.ui_renderer.render_custom_sandbox_ui(rlbot_game_state)
             
             # Render menu if in menu mode
-            if self.game_state.game_phase in [ScenarioPhase.MENU, RacePhase.MENU]:
+            if self.game_state.game_phase in [ScenarioPhase.MENU, RacePhase.MENU, 
+                                              ScenarioPhase.CUSTOM_OFFENSE, ScenarioPhase.CUSTOM_BALL, ScenarioPhase.CUSTOM_DEFENSE]:
                 self.menu_renderer.render_menu()
+            elif self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
+                self.menu_renderer.render_text_input_menu(self._set_custom_scenario_name)
     
     # Menu action handlers
     def _clear_score(self):
@@ -374,7 +402,48 @@ class Dojo(BaseScript):
     
     def _create_custom_mode(self):
         """Enter custom mode creation"""
+        # Setup a blank scenario with player on offense
+        # Set up initial car positions
+        car_states = {}
+        
+        # Spawn the player car in the middle of the map toward their net
+        player_car_state = CarState(
+            physics=Physics(
+                location=Vector3(0, -400, 10), 
+                velocity=Vector3(0, 0, 0), 
+                rotation=Rotator(yaw=np.pi/2, pitch=0, roll=0)
+            ),
+            boost_amount=44
+        )
+        
+        # Place the bot toward their net facing the middle
+        bot_car_state = CarState(
+            physics=Physics(
+                location=Vector3(0, 400, 10), 
+                velocity=Vector3(0, 0, 0), 
+                rotation=Rotator(yaw=-np.pi/2, pitch=0, roll=0)
+            ),
+            boost_amount=44
+        )
+        
+        # Spawn the ball in the middle of the map
+        ball_state = BallState(
+            physics=Physics(
+                location=Vector3(0, 0, 200), 
+                velocity=Vector3(0, 0, 0)
+            )
+        )
+        car_states[CarIndex.HUMAN.value] = player_car_state
+        car_states[CarIndex.BOT.value] = bot_car_state
+        
+        self.scenario_mode.rlbot_game_state = GameState(cars=car_states, ball=ball_state)
+        self.game_interface.set_game_state(self.scenario_mode.rlbot_game_state)
         self.game_state.game_phase = ScenarioPhase.CUSTOM_OFFENSE
+        
+    def _set_custom_scenario_name(self, name):
+        """Set the custom scenario name"""
+        self.game_state.custom_scenario_name = name
+        self.game_state.game_phase = ScenarioPhase.CUSTOM_NAMING
     
     def _select_offensive_mode(self, mode):
         """Select offensive mode"""
@@ -397,9 +466,9 @@ class Dojo(BaseScript):
     def _set_player_role(self, role):
         """Set the player role"""
         if role == PlayerRole.OFFENSE:
-            self.game_state.mirrored = True
+            self.game_state.player_offense = True
         else:
-            self.game_state.mirrored = False
+            self.game_state.player_offense = False
         if hasattr(self.current_mode, '_set_next_game_state'):
             self.current_mode._set_next_game_state()
     
@@ -441,7 +510,7 @@ class Dojo(BaseScript):
         elif self.game_state.custom_updown_selection.name == 'Z':
             modifier.modify_object_z(object_to_modify, -100)
         elif self.game_state.custom_updown_selection.name == 'PITCH':
-            modifier.modify_pitch(object_to_modify, 0.1)
+            modifier.modify_pitch(object_to_modify, increase=True)
         elif self.game_state.custom_updown_selection.name == 'VELOCITY':
             modifier.modify_velocity(object_to_modify, -0.1)
         
@@ -462,7 +531,7 @@ class Dojo(BaseScript):
         elif self.game_state.custom_updown_selection.name == 'Z':
             modifier.modify_object_z(object_to_modify, 100)
         elif self.game_state.custom_updown_selection.name == 'PITCH':
-            modifier.modify_pitch(object_to_modify, -0.1)
+            modifier.modify_pitch(object_to_modify, increase=False)
         elif self.game_state.custom_updown_selection.name == 'VELOCITY':
             modifier.modify_velocity(object_to_modify, 0.1)
         
@@ -479,11 +548,13 @@ class Dojo(BaseScript):
             return
         
         if self.game_state.custom_leftright_selection.name == 'X':
-            modifier.modify_object_x(object_to_modify, -100)
+            modifier.modify_object_x(object_to_modify, 100)
         elif self.game_state.custom_leftright_selection.name == 'YAW':
-            modifier.modify_yaw(object_to_modify, -0.1)
+            modifier.modify_yaw(object_to_modify, increase=True)
         elif self.game_state.custom_leftright_selection.name == 'ROLL':
-            modifier.modify_roll(object_to_modify, -0.1)
+            modifier.modify_roll(object_to_modify, increase=False)
+        elif self.game_state.custom_leftright_selection.name == 'BOOST':
+            modifier.modify_boost(object_to_modify, increase=True)
         
         # Update the game state
         if hasattr(self.current_mode, 'get_rlbot_game_state'):
@@ -498,11 +569,13 @@ class Dojo(BaseScript):
             return
         
         if self.game_state.custom_leftright_selection.name == 'X':
-            modifier.modify_object_x(object_to_modify, 100)
+            modifier.modify_object_x(object_to_modify, -100)
         elif self.game_state.custom_leftright_selection.name == 'YAW':
-            modifier.modify_yaw(object_to_modify, 0.1)
+            modifier.modify_yaw(object_to_modify, increase=False)
         elif self.game_state.custom_leftright_selection.name == 'ROLL':
-            modifier.modify_roll(object_to_modify, 0.1)
+            modifier.modify_roll(object_to_modify, increase=True)
+        elif self.game_state.custom_leftright_selection.name == 'BOOST':
+            modifier.modify_boost(object_to_modify, increase=False)
         
         # Update the game state
         if hasattr(self.current_mode, 'get_rlbot_game_state'):
@@ -534,6 +607,8 @@ class Dojo(BaseScript):
         elif self.game_state.game_phase == ScenarioPhase.CUSTOM_BALL:
             self.game_state.game_phase = ScenarioPhase.CUSTOM_DEFENSE
         elif self.game_state.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
+            self.game_state.game_phase = ScenarioPhase.CUSTOM_NAMING
+        elif self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
             # Save the custom scenario
             rlbot_game_state = None
             if hasattr(self.current_mode, 'get_rlbot_game_state'):
@@ -553,6 +628,8 @@ class Dojo(BaseScript):
             self.game_state.game_phase = ScenarioPhase.CUSTOM_OFFENSE
         elif self.game_state.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
             self.game_state.game_phase = ScenarioPhase.CUSTOM_BALL
+        elif self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
+            self.game_state.game_phase = ScenarioPhase.CUSTOM_DEFENSE
 
     def create_playlist_menu(self):
         """Create playlist selection submenu"""
