@@ -8,7 +8,7 @@ from constants import BACK_WALL, GOAL_DETECTION_THRESHOLD, BALL_GROUND_THRESHOLD
 from playlist import PlaylistRegistry, PlayerRole
 import utils
 import time
-
+from custom_scenario import CustomScenario
 
 class ScenarioMode(BaseGameMode):
     """Handles scenario-based training mode"""
@@ -152,12 +152,16 @@ class ScenarioMode(BaseGameMode):
     
     def _setup_playlist_mode(self):
         """Setup scenario based on current playlist"""
-        scenario_config = self.current_playlist.get_next_scenario()
-        if scenario_config:
+        self.custom_mode_active = False
+        scenario_config, is_custom = self.current_playlist.get_next_scenario()
+        if scenario_config and not is_custom:
             self.game_state.offensive_mode = scenario_config.offensive_mode
             self.game_state.defensive_mode = scenario_config.defensive_mode
             self.game_state.player_offense = (scenario_config.player_role == PlayerRole.OFFENSE)
-    
+        elif scenario_config and is_custom:
+            self.custom_scenario = scenario_config
+            self.custom_mode_active = True
+            
     def _set_next_game_state(self):
         """Create and set the next scenario game state"""
         if not self.game_state.freeze_scenario and not self.custom_mode_active:
