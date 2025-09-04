@@ -16,7 +16,8 @@ import utils
 from race_record import RaceRecord, RaceRecords, get_race_records
 from custom_playlist import CustomPlaylistManager
 from playlist import PlaylistRegistry, PlayerRole
-from custom_scenario import render_custom_sandbox_ui
+from custom_scenario import CustomScenario, get_custom_scenarios
+
 
 class Dojo(BaseScript):
     """
@@ -141,6 +142,10 @@ class Dojo(BaseScript):
         custom_scenario_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
         custom_scenario_menu.add_element(UIElement('Create Custom Scenario', header=True))
         self.menu_renderer.add_element(UIElement('Create Custom Scenario', submenu=custom_scenario_menu, function=self._create_custom_mode))
+        
+        # Custom scenario selection menu
+        custom_scenario_selection_menu = self.create_custom_scenario_menu()
+        self.menu_renderer.add_element(UIElement('Select Custom Scenario', submenu=custom_scenario_selection_menu, submenu_refresh_function=self.create_custom_scenario_menu))
         
         # Preset mode menu
         self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=3)
@@ -381,7 +386,7 @@ class Dojo(BaseScript):
                                               ScenarioPhase.CUSTOM_OFFENSE, ScenarioPhase.CUSTOM_BALL, ScenarioPhase.CUSTOM_DEFENSE]:
                 self.menu_renderer.render_menu()
             elif self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
-                self.menu_renderer.render_text_input_menu(self._set_custom_scenario_name)
+                self.menu_renderer.render_menu()
     
     # Menu action handlers
     def _clear_score(self):
@@ -442,8 +447,18 @@ class Dojo(BaseScript):
         
     def _set_custom_scenario_name(self, name):
         """Set the custom scenario name"""
-        self.game_state.custom_scenario_name = name
-        self.game_state.game_phase = ScenarioPhase.CUSTOM_NAMING
+        if self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
+            self.game_state.custom_scenario_name = name
+            
+            # Get the current game state and record it to file
+            rlbot_game_state = None
+            if hasattr(self.current_mode, 'get_rlbot_game_state'):
+                rlbot_game_state = self.current_mode.get_rlbot_game_state()
+            if rlbot_game_state:
+                custom_scenario = CustomScenario.from_rlbot_game_state(name, rlbot_game_state)
+                custom_scenario.save()
+                
+            self.game_state.game_phase = ScenarioPhase.SETUP
     
     def _select_offensive_mode(self, mode):
         """Select offensive mode"""
@@ -608,6 +623,7 @@ class Dojo(BaseScript):
             self.game_state.game_phase = ScenarioPhase.CUSTOM_DEFENSE
         elif self.game_state.game_phase == ScenarioPhase.CUSTOM_DEFENSE:
             self.game_state.game_phase = ScenarioPhase.CUSTOM_NAMING
+            self.menu_renderer.render_text_input_menu(self._set_custom_scenario_name)
         elif self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
             # Save the custom scenario
             rlbot_game_state = None
@@ -630,6 +646,22 @@ class Dojo(BaseScript):
             self.game_state.game_phase = ScenarioPhase.CUSTOM_BALL
         elif self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
             self.game_state.game_phase = ScenarioPhase.CUSTOM_DEFENSE
+            
+    def create_custom_scenario_menu(self):
+        """Create custom scenario creation submenu"""
+        custom_scenarios = get_custom_scenarios()
+        
+        custom_scenario_menu = MenuRenderer(self.game_interface.renderer, columns=1)
+        custom_scenario_menu.add_element(UIElement("Select Custom Scenario", header=True))
+        for scenario_name in custom_scenarios:
+            custom_scenario_menu.add_element(UIElement(scenario_name, function=self.load_custom_scenario, function_args=scenario_name))
+        return custom_scenario_menu
+        
+    def load_custom_scenario(self, scenario_name):
+        """Load a custom scenario"""
+        custom_scenario = CustomScenario.load(scenario_name)
+        self.scenario_mode.set_custom_scenario(custom_scenario)
+        self.game_state.game_phase = ScenarioPhase.SETUP
 
     def create_playlist_menu(self):
         """Create playlist selection submenu"""

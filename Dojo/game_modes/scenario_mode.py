@@ -20,6 +20,13 @@ class ScenarioMode(BaseGameMode):
         self.playlist_registry = None  # Will be set via set_playlist_registry
         self.current_playlist = None
         self.last_menu_phase_time = 0
+        self.custom_mode_active = False
+        self.custom_scenario = None
+            
+    def set_custom_scenario(self, scenario):
+        """Set the custom scenario"""
+        self.custom_scenario = scenario
+        self.custom_mode_active = True
     
     def set_playlist_registry(self, registry):
         """Set the playlist registry to use"""
@@ -153,7 +160,7 @@ class ScenarioMode(BaseGameMode):
     
     def _set_next_game_state(self):
         """Create and set the next scenario game state"""
-        if not self.game_state.freeze_scenario:
+        if not self.game_state.freeze_scenario and not self.custom_mode_active:
             print(f"Setting next game state: {self.game_state.offensive_mode}, {self.game_state.defensive_mode}")
             
             # Get boost range from current playlist if available
@@ -169,7 +176,10 @@ class ScenarioMode(BaseGameMode):
             self.game_state.scenario_history.append(scenario)
             self.game_state.freeze_scenario_index = len(self.game_state.scenario_history) - 1
         else:
-            scenario = self.game_state.scenario_history[self.game_state.freeze_scenario_index]
+            if self.custom_mode_active:
+                scenario = Scenario.FromGameState(self.custom_scenario.to_rlbot_game_state())
+            else:
+                scenario = self.game_state.scenario_history[self.game_state.freeze_scenario_index]
         
         self.rlbot_game_state = scenario.GetGameState()
         self.set_game_state(self.rlbot_game_state)
