@@ -36,6 +36,7 @@ class UIRenderer:
             player_role_name = "offense" if self.game_state.player_offense else "defense"
             player_role_string = f"Player Role: {player_role_name}"
             previous_record = ""
+            game_phase_name = f"Game Phase: {self.game_state.game_phase.name}"
         elif self.game_state.gym_mode == GymMode.RACE:
             scores = f"Completed: {self.game_state.human_score}"
             total_score = f"Out of: {self.game_state.num_trials}"
@@ -88,6 +89,10 @@ class UIRenderer:
             self.renderer.draw_string_2d(
                 SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 190, 
                 1, 1, player_role_string, self.renderer.black()
+            )
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 220, 
+                1, 1, game_phase_name, self.renderer.black()
             )
         self.renderer.end_rendering()
     

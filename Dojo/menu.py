@@ -264,8 +264,15 @@ class MenuRenderer():
         return False
     
     def render_text_input_menu(self, callback):
+        # Set current entered menu as a text input menu, recursively finding the deepest entered menu
+        for column in range(self.columns):
+            for element in self.elements[column]:
+                if element.entered:
+                    element.submenu.render_text_input_menu(callback)
+                    return
         self.text_input_callback = callback
         self.is_text_input_menu = True
+        return
 
     def render_menu(self):
         # If no elements are selected the first time we render the menu, select the first non-header element
@@ -301,14 +308,8 @@ class MenuRenderer():
         COLUMN_WIDTH = MENU_WIDTH / self.columns
         max_visible_elements = self._get_max_visible_elements()
         
-        # Print details about this menu for debugging
-        print(f"Menu details:")
-        print(f"  - is_text_input_menu: {self.is_text_input_menu}")
-        print(f"  - disable_menu_render: {self.disable_menu_render}")
-        print(f"  - render_function: {self.render_function}")
-        
         # If menu renderer is disabled, only render the external function
-        if self.disable_menu_render and self.render_function:
+        if self.disable_menu_render and self.render_function and not self.is_text_input_menu:
             print(f"Rendering external function")
             self.render_function()
             return
@@ -376,6 +377,7 @@ class MenuRenderer():
                         indicator_y = MENU_START_Y + MENU_HEIGHT - 30
                         self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↓", self.renderer.white())
         else:
+            print("Rendering text input menu")
             # Prompt user to enter a name for the entity
             self.renderer.draw_string_2d(MENU_START_X + 10, MENU_START_Y + 10, 1, 1, "Enter a name:", self.renderer.white())
             
