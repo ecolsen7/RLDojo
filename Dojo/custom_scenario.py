@@ -1,9 +1,6 @@
 import json
 import os
 from typing import List, Dict, Any, Optional, Tuple
-from playlist import Playlist, ScenarioConfig, PlaylistSettings, PlayerRole
-from scenario import OffensiveMode, DefensiveMode
-from menu import MenuRenderer, UIElement
 from pydantic import BaseModel, Field, ValidationError
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 

@@ -27,6 +27,7 @@ import numpy as np
 from scenario import OffensiveMode, DefensiveMode
 from pydantic import BaseModel, Field, ValidationError
 from typing import List, Optional, Tuple
+from custom_scenario import CustomScenario
 
 EXTERNAL_MENU_START_X = 1200
 EXTERNAL_MENU_START_Y = 200
@@ -54,6 +55,7 @@ class Playlist(BaseModel):
     name: str
     description: str
     scenarios: Optional[List[ScenarioConfig]] = Field(default_factory=list)
+    custom_scenarios: Optional[List[CustomScenario]] = Field(default_factory=list)
     settings: Optional[PlaylistSettings] = None
     offensive_modes: Optional[List[OffensiveMode]] = Field(default_factory=list)
     defensive_modes: Optional[List[DefensiveMode]] = Field(default_factory=list)
@@ -72,13 +74,23 @@ class Playlist(BaseModel):
     
     def get_next_scenario(self):
         """Get next scenario, considering weights"""
-        if not self.scenarios:
+        if not self.scenarios and not self.custom_scenarios:
             return None
             
         # Use weighted random selection
-        weights = [s.weight for s in self.scenarios]
-        scenario = np.random.choice(self.scenarios, p=np.array(weights)/sum(weights))
-        return scenario
+        # weights = [s.weight for s in self.scenarios]
+        
+        total_num_scenarios = len(self.scenarios) + len(self.custom_scenarios)
+        # scenario = np.random.choice(self.scenarios, p=np.array(weights)/sum(weights))
+        # Ignore weights
+        scenario_index = np.random.randint(0, total_num_scenarios)
+        is_custom = False
+        if scenario_index < len(self.scenarios):
+            scenario = self.scenarios[scenario_index]
+        else:
+            is_custom = True
+            scenario = self.custom_scenarios[scenario_index - len(self.scenarios)]
+        return scenario, is_custom
     
     def _shuffle_scenarios(self):
         """Shuffle scenario order"""
@@ -109,6 +121,12 @@ class Playlist(BaseModel):
             print_start_y += 20
             renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Timeout: {self.settings.timeout}s", text_color)
             print_start_y += 20
+        if self.custom_scenarios:
+            renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"Custom Scenarios: {len(self.custom_scenarios)}", text_color)
+            print_start_y += 20
+            for scenario in self.custom_scenarios:
+                renderer.draw_string_2d(print_start_x, print_start_y, 1, 1, f"{scenario.name}", text_color)
+                print_start_y += 20
 
 class PlaylistRegistry:
     def __init__(self, renderer=None):
