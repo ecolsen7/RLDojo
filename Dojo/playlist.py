@@ -56,7 +56,7 @@ class Playlist(BaseModel):
     description: str
     scenarios: Optional[List[ScenarioConfig]] = Field(default_factory=list)
     custom_scenarios: Optional[List[CustomScenario]] = Field(default_factory=list)
-    settings: Optional[PlaylistSettings] = None
+    settings: Optional[PlaylistSettings] = Field(default_factory=PlaylistSettings)
     offensive_modes: Optional[List[OffensiveMode]] = Field(default_factory=list)
     defensive_modes: Optional[List[DefensiveMode]] = Field(default_factory=list)
     player_role: Optional[PlayerRole] = None
@@ -250,7 +250,6 @@ class PlaylistRegistry:
                 ScenarioConfig(offensive_mode=OffensiveMode.BACKPASS, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.OFFENSE),
                 ScenarioConfig(offensive_mode=OffensiveMode.BACK_CORNER_BREAKOUT, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.OFFENSE),
             ],
-            player_role=PlayerRole.OFFENSE,
             settings=PlaylistSettings(timeout=10.0, shuffle=True, boost_range=(74, 100))  # High boost for mechanics
         )
         
