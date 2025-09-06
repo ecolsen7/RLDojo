@@ -13,12 +13,15 @@ import utils
 
 def modify_object_x(object_to_modify, x):
     object_to_modify.physics.location.x += x
+    utils.sanity_check_objects([object_to_modify])
     
 def modify_object_y(object_to_modify, y):
     object_to_modify.physics.location.y += y
-
+    utils.sanity_check_objects([object_to_modify])
+    
 def modify_object_z(object_to_modify, z):
     object_to_modify.physics.location.z += z
+    utils.sanity_check_objects([object_to_modify])
 
 def modify_pitch(object_to_modify, increase):
     if utils.hasattrdeep(object_to_modify, 'physics', 'rotation', 'pitch'):
@@ -49,8 +52,10 @@ def modify_pitch(object_to_modify, increase):
         yaw = np.arctan2(object_to_modify.physics.velocity.y, object_to_modify.physics.velocity.x)
         pitch = np.arctan2(object_to_modify.physics.velocity.z, np.sqrt(object_to_modify.physics.velocity.x**2 + object_to_modify.physics.velocity.y**2))
 
-        # Increase pitch by 0.1
-        pitch += pitch
+        if increase:
+            pitch += (0.125 * np.pi)
+        else:
+            pitch -= (0.125 * np.pi)
 
         # Convert back to velocity components
         object_to_modify.physics.velocity = utils.get_velocity_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
@@ -80,8 +85,10 @@ def modify_yaw(object_to_modify, increase):
         yaw = np.arctan2(object_to_modify.physics.velocity.y, object_to_modify.physics.velocity.x)
         pitch = np.arctan2(object_to_modify.physics.velocity.z, np.sqrt(object_to_modify.physics.velocity.x**2 + object_to_modify.physics.velocity.y**2))
 
-        # Increase yaw by 0.1
-        yaw += yaw
+        if increase:
+            yaw += (0.125 * np.pi)
+        else:
+            yaw -= (0.125 * np.pi)
 
         # Convert back to velocity components
         object_to_modify.physics.velocity = utils.get_velocity_from_rotation(Rotator(yaw=yaw, pitch=pitch, roll=0), 1000, 2000)
@@ -120,4 +127,3 @@ def modify_boost(object_to_modify, increase):
             object_to_modify.boost_amount += 1
         else:
             object_to_modify.boost_amount -= 1
-

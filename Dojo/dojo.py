@@ -139,13 +139,14 @@ class Dojo(BaseScript):
             self.menu_renderer.add_element(UIElement('Create Custom Playlist', submenu=custom_playlist_menu))
             
         # Custom scenario creation menu
-        custom_scenario_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
-        custom_scenario_menu.add_element(UIElement('Create Custom Scenario', header=True))
-        self.menu_renderer.add_element(UIElement('Create Custom Scenario', submenu=custom_scenario_menu, function=self._create_custom_mode))
+        custom_scenario_creation_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
+        custom_scenario_creation_menu.add_element(UIElement('Create Custom Scenario', header=True))
+        custom_scenario_starting_point_menu = self.create_custom_scenario_starting_point_menu(custom_scenario_creation_menu)
+        self.menu_renderer.add_element(UIElement('Create Custom Scenario', submenu=custom_scenario_starting_point_menu))
         
         # Custom scenario selection menu
-        custom_scenario_selection_menu = self.create_custom_scenario_menu()
-        self.menu_renderer.add_element(UIElement('Select Custom Scenario', submenu=custom_scenario_selection_menu, submenu_refresh_function=self.create_custom_scenario_menu))
+        custom_scenario_selection_menu = self.create_custom_scenario_selection_menu()
+        self.menu_renderer.add_element(UIElement('Load Custom Scenario', submenu=custom_scenario_selection_menu, submenu_refresh_function=self.create_custom_scenario_selection_menu))
         
         # Preset mode menu
         self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=3)
@@ -404,46 +405,6 @@ class Dojo(BaseScript):
     def _toggle_freeze_scenario(self):
         """Toggle scenario freezing"""
         self.game_state.toggle_freeze_scenario()
-    
-    def _create_custom_mode(self):
-        """Enter custom mode creation"""
-        # Setup a blank scenario with player on offense
-        # Set up initial car positions
-        car_states = {}
-        
-        # Spawn the player car in the middle of the map toward their net
-        player_car_state = CarState(
-            physics=Physics(
-                location=Vector3(0, -400, 10), 
-                velocity=Vector3(0, 0, 0), 
-                rotation=Rotator(yaw=np.pi/2, pitch=0, roll=0)
-            ),
-            boost_amount=44
-        )
-        
-        # Place the bot toward their net facing the middle
-        bot_car_state = CarState(
-            physics=Physics(
-                location=Vector3(0, 400, 10), 
-                velocity=Vector3(0, 0, 0), 
-                rotation=Rotator(yaw=-np.pi/2, pitch=0, roll=0)
-            ),
-            boost_amount=44
-        )
-        
-        # Spawn the ball in the middle of the map
-        ball_state = BallState(
-            physics=Physics(
-                location=Vector3(0, 0, 200), 
-                velocity=Vector3(0, 0, 0)
-            )
-        )
-        car_states[CarIndex.HUMAN.value] = player_car_state
-        car_states[CarIndex.BOT.value] = bot_car_state
-        
-        self.scenario_mode.rlbot_game_state = GameState(cars=car_states, ball=ball_state)
-        self.game_interface.set_game_state(self.scenario_mode.rlbot_game_state)
-        self.game_state.game_phase = ScenarioPhase.CUSTOM_OFFENSE
         
     def _set_custom_scenario_name(self, name):
         """Set the custom scenario name"""
@@ -563,9 +524,9 @@ class Dojo(BaseScript):
             return
         
         if self.game_state.custom_leftright_selection.name == 'X':
-            modifier.modify_object_x(object_to_modify, 100)
+            modifier.modify_object_x(object_to_modify, 50)
         elif self.game_state.custom_leftright_selection.name == 'YAW':
-            modifier.modify_yaw(object_to_modify, increase=True)
+            modifier.modify_yaw(object_to_modify, increase=False)
         elif self.game_state.custom_leftright_selection.name == 'ROLL':
             modifier.modify_roll(object_to_modify, increase=False)
         elif self.game_state.custom_leftright_selection.name == 'BOOST':
@@ -584,9 +545,9 @@ class Dojo(BaseScript):
             return
         
         if self.game_state.custom_leftright_selection.name == 'X':
-            modifier.modify_object_x(object_to_modify, -100)
+            modifier.modify_object_x(object_to_modify, -50)
         elif self.game_state.custom_leftright_selection.name == 'YAW':
-            modifier.modify_yaw(object_to_modify, increase=False)
+            modifier.modify_yaw(object_to_modify, increase=True)
         elif self.game_state.custom_leftright_selection.name == 'ROLL':
             modifier.modify_roll(object_to_modify, increase=True)
         elif self.game_state.custom_leftright_selection.name == 'BOOST':
@@ -647,15 +608,74 @@ class Dojo(BaseScript):
         elif self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
             self.game_state.game_phase = ScenarioPhase.CUSTOM_DEFENSE
             
-    def create_custom_scenario_menu(self):
+    def create_custom_scenario_selection_menu(self):
         """Create custom scenario creation submenu"""
         custom_scenarios = get_custom_scenarios()
         
-        custom_scenario_menu = MenuRenderer(self.game_interface.renderer, columns=1)
-        custom_scenario_menu.add_element(UIElement("Select Custom Scenario", header=True))
+        custom_scenario_selection_menu = MenuRenderer(self.game_interface.renderer, columns=1)
+        custom_scenario_selection_menu.add_element(UIElement("Select Custom Scenario", header=True))
         for scenario_name in custom_scenarios:
-            custom_scenario_menu.add_element(UIElement(scenario_name, function=self.load_custom_scenario, function_args=scenario_name))
-        return custom_scenario_menu
+            custom_scenario_selection_menu.add_element(UIElement(scenario_name, function=self.load_custom_scenario, function_args=scenario_name))
+        return custom_scenario_selection_menu
+        
+    def create_custom_scenario_starting_point_menu(self, custom_scenario_creation_menu):
+        """Create custom scenario starting point submenu"""
+        custom_scenarios = get_custom_scenarios()
+        
+        custom_scenario_selection_menu = MenuRenderer(self.game_interface.renderer, columns=1)
+        custom_scenario_selection_menu.add_element(UIElement("Select Custom Scenario", header=True))
+        custom_scenario_selection_menu.add_element(UIElement("From Scratch", function=self._set_from_scratch_scenario, submenu=custom_scenario_creation_menu))
+        for scenario_name in custom_scenarios:
+            custom_scenario_selection_menu.add_element(UIElement(scenario_name, function=self._start_from_custom_scenario, function_args=scenario_name, submenu=custom_scenario_creation_menu))
+        return custom_scenario_selection_menu
+        
+    def _start_from_custom_scenario(self, scenario_name):
+        """Start from a custom scenario"""
+        print(f"Starting from custom scenario: {scenario_name}")
+        custom_scenario = CustomScenario.load(scenario_name)
+        game_state = custom_scenario.to_rlbot_game_state()
+        self.scenario_mode.rlbot_game_state = game_state
+        self.game_interface.set_game_state(game_state)
+        self.game_state.game_phase = ScenarioPhase.CUSTOM_OFFENSE
+        
+    def _set_from_scratch_scenario(self):
+        # Setup a blank scenario with player on offense
+        # Set up initial car positions
+        car_states = {}
+        
+        # Spawn the player car in the middle of the map toward their net
+        player_car_state = CarState(
+            physics=Physics(
+                location=Vector3(0, -400, 10), 
+                velocity=Vector3(0, 0, 0), 
+                rotation=Rotator(yaw=np.pi/2, pitch=0, roll=0)
+            ),
+            boost_amount=44
+        )
+        
+        # Place the bot toward their net facing the middle
+        bot_car_state = CarState(
+            physics=Physics(
+                location=Vector3(0, 400, 10), 
+                velocity=Vector3(0, 0, 0), 
+                rotation=Rotator(yaw=-np.pi/2, pitch=0, roll=0)
+            ),
+            boost_amount=44
+        )
+        
+        # Spawn the ball in the middle of the map
+        ball_state = BallState(
+            physics=Physics(
+                location=Vector3(0, 0, 200), 
+                velocity=Vector3(0, 0, 0)
+            )
+        )
+        car_states[CarIndex.HUMAN.value] = player_car_state
+        car_states[CarIndex.BOT.value] = bot_car_state
+        
+        self.scenario_mode.rlbot_game_state = GameState(cars=car_states, ball=ball_state)
+        self.game_interface.set_game_state(self.scenario_mode.rlbot_game_state)
+        self.game_state.game_phase = ScenarioPhase.CUSTOM_OFFENSE
         
     def load_custom_scenario(self, scenario_name):
         """Load a custom scenario"""
