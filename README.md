@@ -52,8 +52,24 @@ For example:
 
 The goal of RLDojo is to make these scenarios (and infinitely more) possible to train repeatedly!
 
+# Installation
+To get RLDojo up and running:
+1. Install RLBot: rlbot.org
+2. In RLBotGUI, go to `+Add` -> `Download Bot Pack` (this will download the 'standard' bots)
+3. Download the latest RLDojo release: https://github.com/ecolsen7/RLDojo/releases and extract it
+4. In RLBotGUI, go to `+Add` -> `Load Folder` and select the RLDojo folder that you just downloaded/created
+5. In RLBotGUI, find `Dojo` under the `Scripts` section
+   - If there is a yellow trinagle next to `Dojo`, click it to install any needed packages
+   - Enable `Dojo` by clicking the toggle
+6. In RLBotGUI, click the `Mutators` option at the bottom. Change `Match Length` to "Unlimited", and `Respawn Time` to "Disable Goal Reset"
+7. In RLBotGUI, click the `Extras` option at the bottom. Select the following: <img width="421" height="289" alt="image" src="https://github.com/user-attachments/assets/a7c5a078-4c64-409a-a16f-a01658826b1a" />
+8. Make sure "Human" is on the Blue team, and add any bot (I recommend starting with `Necto`) to the Orange team.
+9. Hit `Launch Rocket League and start match`.
+10. Have fun!
+
+
 # How much does it cost?
 
 It’s free! My motivation for making this is that I love this game, and I want to see it and its competitive community thrive.
 
-If you feel particularly inclined to give back, feel free to follow me on Twitch and/or Youtube! If that’s not enough, you can buy me a coffee: 
+If you feel particularly inclined to give back, feel free to follow me on Twitch and/or Youtube! If that’s not enough, you can (buy me a coffee)[https://buymeacoffee.com/ecolsen74]
