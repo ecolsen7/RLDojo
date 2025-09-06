@@ -54,7 +54,7 @@ The goal of RLDojo is to make these scenarios (and infinitely more) possible to 
 
 # Installation
 To get RLDojo up and running:
-1. Install RLBot: rlbot.org
+1. Install RLBot: [rlbot.org](https://rlbot.org/)
 2. In RLBotGUI, go to `+Add` -> `Download Bot Pack` (this will download the 'standard' bots)
 3. Download the latest RLDojo release: https://github.com/ecolsen7/RLDojo/releases and extract it
 4. In RLBotGUI, go to `+Add` -> `Load Folder` and select the RLDojo folder that you just downloaded/created
