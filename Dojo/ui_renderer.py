@@ -53,46 +53,39 @@ class UIRenderer:
         # Main instruction text
         self.renderer.draw_string_2d(20, 50, 1, 1, text, self.renderer.yellow())
         
-        # Score box
-        self.renderer.draw_rect_2d(
-            SCORE_BOX_START_X, SCORE_BOX_START_Y, 
-            SCORE_BOX_WIDTH, SCORE_BOX_HEIGHT, 
-            True, self.renderer.white()
-        )
-        
         # Score box content
         self.renderer.draw_string_2d(
             SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 10, 
-            1, 1, scores, self.renderer.black()
+            1, 1, scores, self.renderer.white()
         )
         self.renderer.draw_string_2d(
             SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 40, 
-            1, 1, total_score, self.renderer.black()
+            1, 1, total_score, self.renderer.white()
         )
         self.renderer.draw_string_2d(
             SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 70, 
-            1, 1, time_since_start, self.renderer.black()
+            1, 1, time_since_start, self.renderer.white()
         )
         self.renderer.draw_string_2d(
             SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 100, 
-            1, 1, previous_record, self.renderer.black()
+            1, 1, previous_record, self.renderer.white()
         )
         if self.game_state.gym_mode == GymMode.SCENARIO:
             self.renderer.draw_string_2d(
                 SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 130, 
-                1, 1, offensive_mode_name, self.renderer.black()
+                1, 1, offensive_mode_name, self.renderer.white()
             )
             self.renderer.draw_string_2d(
                 SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 160, 
-                1, 1, defensive_mode_name, self.renderer.black()
+                1, 1, defensive_mode_name, self.renderer.white()
             )
             self.renderer.draw_string_2d(
                 SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 190, 
-                1, 1, player_role_string, self.renderer.black()
+                1, 1, player_role_string, self.renderer.white()
             )
             self.renderer.draw_string_2d(
                 SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 220, 
-                1, 1, game_phase_name, self.renderer.black()
+                1, 1, game_phase_name, self.renderer.white()
             )
         self.renderer.end_rendering()
     

@@ -329,9 +329,9 @@ class Dojo(BaseScript):
         
         # Instruction text
         text = f"""Custom Mode Sandbox: {object_name}
-        [tab] cycle movement parameters
-        [enter] next object [offensive car -> ball -> defensive car]
-        [backspace] previous object"""
+[tab] cycle movement parameters
+[enter] next object [offensive car -> ball -> defensive car]
+[backspace] previous object"""
         
         self.renderer.begin_rendering()
         
