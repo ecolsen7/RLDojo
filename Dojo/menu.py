@@ -86,10 +86,11 @@ class MenuRenderer():
         print("entering complete text input: ", self.is_text_input_menu)
         if self.is_text_input_menu:
             print("completing text input: ", self.text_input_value)
-            # self.is_text_input_menu = False
             if self.text_input_callback:
                 self.text_input_callback(self.text_input_value)
             self.text_input_value = ""
+            self.is_text_input_menu = False
+            self.text_input_callback = None
         else:
             for element in self.elements[self.active_column]:
                 if element.entered:
@@ -310,7 +311,6 @@ class MenuRenderer():
         
         # If menu renderer is disabled, only render the external function
         if self.disable_menu_render and self.render_function and not self.is_text_input_menu:
-            print(f"Rendering external function")
             self.render_function()
             return
         
@@ -377,7 +377,6 @@ class MenuRenderer():
                         indicator_y = MENU_START_Y + MENU_HEIGHT - 30
                         self.renderer.draw_string_2d(indicator_x, indicator_y, 1, 1, "↓", self.renderer.white())
         else:
-            print("Rendering text input menu")
             # Prompt user to enter a name for the entity
             self.renderer.draw_string_2d(MENU_START_X + 10, MENU_START_Y + 10, 1, 1, "Enter a name:", self.renderer.white())
             
