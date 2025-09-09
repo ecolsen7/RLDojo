@@ -127,16 +127,6 @@ class CustomPlaylistManager:
         # Column 2: Player role and actions
         return menu
     
-    def _show_scenario_list(self):
-        """Show the list of currently added scenarios"""
-        if not self.current_scenarios:
-            print("No scenarios added yet")
-        else:
-            print("Added scenarios:")
-            for i, scenario in enumerate(self.current_scenarios):
-                scenario_text = f"{i+1}. {scenario.offensive_mode.name.replace('_', ' ').title()} vs {scenario.defensive_mode.name.replace('_', ' ').title()} ({scenario.player_role.name})"
-                print(scenario_text)
-    
     def _create_boost_range_menu(self):
         """Create menu for setting boost range"""
         menu = MenuRenderer(self.renderer, columns=2, render_function=self._render_playlist_details)

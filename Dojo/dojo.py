@@ -419,6 +419,7 @@ class Dojo(BaseScript):
                 custom_scenario = CustomScenario.from_rlbot_game_state(name, rlbot_game_state)
                 custom_scenario.save()
                 
+            # todo put some state saving here so it doesn't setup the wrong scenario?
             self.game_state.game_phase = ScenarioPhase.SETUP
     
     def _select_offensive_mode(self, mode):
@@ -427,8 +428,11 @@ class Dojo(BaseScript):
         self.game_state.offensive_mode = mode
         if self.game_state.game_phase != ScenarioPhase.MENU:
             self.game_state.game_phase = ScenarioPhase.SETUP
-        elif hasattr(self.current_mode, '_set_next_game_state'):
-            self.current_mode._set_next_game_state()
+        self.current_mode = self.scenario_mode
+        self.game_state.gym_mode = GymMode.SCENARIO
+        self.current_mode.clear_playlist()
+        self.current_mode._set_next_game_state()
+
     
     def _select_defensive_mode(self, mode):
         """Select defensive mode"""
@@ -436,8 +440,10 @@ class Dojo(BaseScript):
         self.game_state.defensive_mode = mode
         if self.game_state.game_phase != ScenarioPhase.MENU:
             self.game_state.game_phase = ScenarioPhase.SETUP
-        elif hasattr(self.current_mode, '_set_next_game_state'):
-            self.current_mode._set_next_game_state()
+        self.current_mode = self.scenario_mode
+        self.game_state.gym_mode = GymMode.SCENARIO
+        self.current_mode.clear_playlist()
+        self.current_mode._set_next_game_state()
             
     def _set_player_role(self, role):
         """Set the player role"""
@@ -445,8 +451,10 @@ class Dojo(BaseScript):
             self.game_state.player_offense = True
         else:
             self.game_state.player_offense = False
-        if hasattr(self.current_mode, '_set_next_game_state'):
-            self.current_mode._set_next_game_state()
+        self.current_mode = self.scenario_mode
+        self.game_state.gym_mode = GymMode.SCENARIO
+        self.current_mode.clear_playlist()
+        self.current_mode._set_next_game_state()
     
     def _set_race_mode(self, trials):
         """Set race mode with specified number of trials"""
@@ -682,6 +690,8 @@ class Dojo(BaseScript):
         custom_scenario = CustomScenario.load(scenario_name)
         self.scenario_mode.set_custom_scenario(custom_scenario)
         self.game_state.game_phase = ScenarioPhase.SETUP
+        self.current_mode = self.scenario_mode
+        self.current_mode.clear_playlist()
 
     def create_playlist_menu(self):
         """Create playlist selection submenu"""

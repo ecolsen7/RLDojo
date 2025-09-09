@@ -31,6 +31,10 @@ class ScenarioMode(BaseGameMode):
     def set_playlist_registry(self, registry):
         """Set the playlist registry to use"""
         self.playlist_registry = registry
+        
+    def clear_playlist(self):
+        """Clear the active playlist"""
+        self.current_playlist = None
     
     def set_playlist(self, playlist_name):
         """Set the active playlist"""
@@ -107,6 +111,9 @@ class ScenarioMode(BaseGameMode):
         # For each second, render a countdown from 3 to 1
         if time.time() - self.last_menu_phase_time > 3:
             self.game_state.game_phase = ScenarioPhase.ACTIVE
+            
+            # Reset prev time so we don't instantly timeout 
+            self.prev_time = self.game_state.cur_time
         else:
             self.game_interface.renderer.begin_rendering()
             self.game_interface.renderer.draw_string_2d(850, 200, 15, 15, str(3 - int(time.time() - self.last_menu_phase_time)), self.game_interface.renderer.white())
