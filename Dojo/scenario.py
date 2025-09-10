@@ -105,8 +105,8 @@ class Scenario:
         Create a new scenario from a game state
         '''
         scenario = Scenario()
-        scenario.offensive_car_state = CarState(physics=game_state.cars[1].physics)
-        scenario.defensive_car_state = CarState(physics=game_state.cars[0].physics)
+        scenario.offensive_car_state = CarState(physics=game_state.cars[1].physics, boost_amount=game_state.cars[1].boost_amount)
+        scenario.defensive_car_state = CarState(physics=game_state.cars[0].physics, boost_amount=game_state.cars[0].boost_amount)
         scenario.ball_state = BallState(physics=game_state.ball.physics)
         utils.sanity_check_objects([scenario.offensive_car_state, scenario.defensive_car_state, scenario.ball_state])
         return scenario

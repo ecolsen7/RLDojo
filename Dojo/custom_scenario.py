@@ -206,32 +206,7 @@ class CustomScenario(BaseModel):
         with open(file_path, "r") as f:
             return cls.model_validate_json(f.read())
 
-    @classmethod
-    def load_all(cls) -> Dict[str, 'CustomScenario']:
-        """Load all custom scenarios from disk"""
-        scenarios = {}
-        
-        # Ensure the scenarios directory exists
-        os.makedirs(_get_custom_scenarios_path(), exist_ok=True)
-        
-        for file in os.listdir(_get_custom_scenarios_path()):
-            if file.endswith(".json"):
-                name = file[:-5]  # Remove .json extension
-                try:
-                    scenarios[name] = cls.load(name)
-                except Exception as e:
-                    print(f"Failed to load scenario '{name}': {e}")
-        
-        return scenarios
 
-    @classmethod
-    def delete(cls, name: str) -> None:
-        """Delete a scenario from disk"""
-        file_path = os.path.join(_get_custom_scenarios_path(), f"{name}.json")
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        else:
-            raise FileNotFoundError(f"No scenario found with name '{name}'")
 
 def get_custom_scenarios():
     """Get all custom scenarios"""

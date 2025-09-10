@@ -128,26 +128,7 @@ class Dojo(BaseScript):
         self.menu_renderer.add_element(UIElement('Main Menu', header=True))
         self.menu_renderer.add_element(UIElement('Reset Score', function=self._clear_score))
         self.menu_renderer.add_element(UIElement('Freeze Scenario', function=self._toggle_freeze_scenario))
-        
-        # Playlist menu
-        self.playlist_menu = self.create_playlist_menu()
-        self.menu_renderer.add_element(UIElement('Select Playlist', submenu=self.playlist_menu, submenu_refresh_function=self.create_playlist_menu))
-        
-        # Custom playlist creation menu
-        if self.custom_playlist_manager:
-            custom_playlist_menu = self.custom_playlist_manager.create_playlist_creation_menu()
-            self.menu_renderer.add_element(UIElement('Create Custom Playlist', submenu=custom_playlist_menu))
-            
-        # Custom scenario creation menu
-        custom_scenario_creation_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
-        custom_scenario_creation_menu.add_element(UIElement('Create Custom Scenario', header=True))
-        custom_scenario_starting_point_menu = self.create_custom_scenario_starting_point_menu(custom_scenario_creation_menu)
-        self.menu_renderer.add_element(UIElement('Create Custom Scenario', submenu=custom_scenario_starting_point_menu))
-        
-        # Custom scenario selection menu
-        custom_scenario_selection_menu = self.create_custom_scenario_selection_menu()
-        self.menu_renderer.add_element(UIElement('Load Custom Scenario', submenu=custom_scenario_selection_menu, submenu_refresh_function=self.create_custom_scenario_selection_menu))
-        
+
         # Preset mode menu
         self.preset_mode_menu = MenuRenderer(self.game_interface.renderer, columns=3)
         self.preset_mode_menu.add_element(UIElement('Offensive Mode', header=True), column=0)
@@ -168,7 +149,26 @@ class Dojo(BaseScript):
         self.preset_mode_menu.add_element(UIElement('Defense', function=self._set_player_role, function_args=PlayerRole.DEFENSE, chooseable=True), column=2)
         self.preset_mode_menu.add_element(UIElement('', header=True), column=2)  # Spacer
         self.preset_mode_menu.add_element(UIElement('Confirm Scenario', function=self._handle_back), column=2)
-        self.menu_renderer.add_element(UIElement('Select Preset Mode', submenu=self.preset_mode_menu))
+        self.menu_renderer.add_element(UIElement('Load Preset Scenario', submenu=self.preset_mode_menu))
+        
+        # Custom scenario selection menu
+        custom_scenario_selection_menu = self.create_custom_scenario_selection_menu()
+        self.menu_renderer.add_element(UIElement('Load Custom Scenario', submenu=custom_scenario_selection_menu, submenu_refresh_function=self.create_custom_scenario_selection_menu))
+        
+        # Playlist menu
+        self.playlist_menu = self.create_playlist_menu()
+        self.menu_renderer.add_element(UIElement('Select Playlist', submenu=self.playlist_menu, submenu_refresh_function=self.create_playlist_menu))
+        
+        # Custom playlist creation menu
+        if self.custom_playlist_manager:
+            custom_playlist_menu = self.custom_playlist_manager.create_playlist_creation_menu()
+            self.menu_renderer.add_element(UIElement('Create Custom Playlist', submenu=custom_playlist_menu))
+            
+        # Custom scenario creation menu
+        self.custom_scenario_creation_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
+        self.custom_scenario_creation_menu.add_element(UIElement('Create Custom Scenario', header=True))
+        custom_scenario_starting_point_menu = self.create_custom_scenario_starting_point_menu()
+        self.menu_renderer.add_element(UIElement('Create Custom Scenario', submenu=custom_scenario_starting_point_menu, submenu_refresh_function=self.create_custom_scenario_starting_point_menu))
         
         # Race mode menu
         self.race_mode_menu = MenuRenderer(self.game_interface.renderer)
@@ -189,7 +189,8 @@ class Dojo(BaseScript):
         keyboard.add_hotkey('tab', self._handle_tab)
         keyboard.add_hotkey('b', self._handle_back)
         keyboard.add_hotkey('enter', self._enter_handler)
-        
+        keyboard.add_hotkey('1', self._handle_custom_trial)
+
         # For all other letters, submit the letter as a text input
         for letter in string.ascii_lowercase:
             self._add_hotkey_with_arg(letter, self._handle_text_input, letter)
@@ -279,6 +280,11 @@ class Dojo(BaseScript):
         else:
             self.menu_renderer.handle_back_key()
             
+    def _handle_custom_trial(self):
+        """Handle custom trial key"""
+        self.game_state.game_phase = ScenarioPhase.CUSTOM_TRIAL
+        self.current_mode = self.scenario_mode
+            
     def _custom_cycle_selection(self):
         """Cycle through the custom selection list"""
         if self.game_state.custom_selection_index < len(CUSTOM_SELECTION_LIST) - 1:
@@ -331,7 +337,8 @@ class Dojo(BaseScript):
         text = f"""Custom Mode Sandbox: {object_name}
 [tab] cycle movement parameters
 [enter] next object [offensive car -> ball -> defensive car]
-[backspace] previous object"""
+[backspace] previous object
+[1] try scenario"""
         
         self.renderer.begin_rendering()
         
@@ -394,13 +401,6 @@ class Dojo(BaseScript):
         """Clear both human and bot scores"""
         self.game_state.clear_score()
     
-    def _toggle_mirror(self):
-        """Toggle mirror mode"""
-        self.game_state.toggle_mirror()
-        if self.game_state.game_phase != ScenarioPhase.MENU:
-            self.game_state.game_phase = ScenarioPhase.SETUP
-        elif hasattr(self.current_mode, '_set_next_game_state'):
-            self.current_mode._set_next_game_state()
     
     def _toggle_freeze_scenario(self):
         """Toggle scenario freezing"""
@@ -419,8 +419,13 @@ class Dojo(BaseScript):
                 custom_scenario = CustomScenario.from_rlbot_game_state(name, rlbot_game_state)
                 custom_scenario.save()
                 
+                    
             # todo put some state saving here so it doesn't setup the wrong scenario?
+            self.scenario_mode.set_custom_scenario(custom_scenario)
             self.game_state.game_phase = ScenarioPhase.SETUP
+            self.current_mode = self.scenario_mode
+            self.current_mode.clear_playlist()
+            self.current_mode._set_next_game_state()
     
     def _select_offensive_mode(self, mode):
         """Select offensive mode"""
@@ -626,15 +631,15 @@ class Dojo(BaseScript):
             custom_scenario_selection_menu.add_element(UIElement(scenario_name, function=self.load_custom_scenario, function_args=scenario_name))
         return custom_scenario_selection_menu
         
-    def create_custom_scenario_starting_point_menu(self, custom_scenario_creation_menu):
+    def create_custom_scenario_starting_point_menu(self):
         """Create custom scenario starting point submenu"""
         custom_scenarios = get_custom_scenarios()
         
         custom_scenario_selection_menu = MenuRenderer(self.game_interface.renderer, columns=1)
         custom_scenario_selection_menu.add_element(UIElement("Select Custom Scenario", header=True))
-        custom_scenario_selection_menu.add_element(UIElement("From Scratch", function=self._set_from_scratch_scenario, submenu=custom_scenario_creation_menu))
+        custom_scenario_selection_menu.add_element(UIElement("From Scratch", function=self._set_from_scratch_scenario, submenu=self.custom_scenario_creation_menu))
         for scenario_name in custom_scenarios:
-            custom_scenario_selection_menu.add_element(UIElement(scenario_name, function=self._start_from_custom_scenario, function_args=scenario_name, submenu=custom_scenario_creation_menu))
+            custom_scenario_selection_menu.add_element(UIElement(scenario_name, function=self._start_from_custom_scenario, function_args=scenario_name, submenu=self.custom_scenario_creation_menu))
         return custom_scenario_selection_menu
         
     def _start_from_custom_scenario(self, scenario_name):
@@ -675,7 +680,7 @@ class Dojo(BaseScript):
         ball_state = BallState(
             physics=Physics(
                 location=Vector3(0, 0, 200), 
-                velocity=Vector3(0, 0, 0)
+                velocity=Vector3(0, 0, 50)
             )
         )
         car_states[CarIndex.HUMAN.value] = player_car_state

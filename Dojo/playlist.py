@@ -61,16 +61,6 @@ class Playlist(BaseModel):
     defensive_modes: Optional[List[DefensiveMode]] = Field(default_factory=list)
     player_role: Optional[PlayerRole] = None
 
-    def setup(self):
-        # If offensive_modes and defensive_modes are provided, generate all combinations
-        if self.offensive_modes and self.defensive_modes and self.player_role is not None:
-            self.scenarios = []
-            for off_mode in self.offensive_modes:
-                for def_mode in self.defensive_modes:
-                    self.scenarios.append(ScenarioConfig(off_mode, def_mode, self.player_role))
-        
-        if self.settings and self.settings.shuffle:
-            self._shuffle_scenarios()
     
     def get_next_scenario(self):
         """Get next scenario, considering weights"""
@@ -92,9 +82,6 @@ class Playlist(BaseModel):
             scenario = self.custom_scenarios[scenario_index - len(self.scenarios)]
         return scenario, is_custom
     
-    def _shuffle_scenarios(self):
-        """Shuffle scenario order"""
-        np.random.shuffle(self.scenarios)
         
     def render_details(self, renderer):
         """Render the playlist details"""
@@ -193,17 +180,6 @@ class PlaylistRegistry:
             ],
         )
         
-        # Midfield challenges - opposite of midfield outplays
-        midfield_challenges = Playlist(
-            name="Midfield Challenges",
-            description="Practice challenging defenders in midfield",
-            scenarios=[
-                ScenarioConfig(offensive_mode=OffensiveMode.BREAKOUT, defensive_mode=DefensiveMode.FRONT_INTERCEPT, player_role=PlayerRole.DEFENSE),
-                ScenarioConfig(offensive_mode=OffensiveMode.SIDEWALL_BREAKOUT, defensive_mode=DefensiveMode.FRONT_INTERCEPT, player_role=PlayerRole.DEFENSE),
-                ScenarioConfig(offensive_mode=OffensiveMode.BACK_CORNER_BREAKOUT, defensive_mode=DefensiveMode.FRONT_INTERCEPT, player_role=PlayerRole.DEFENSE),
-                ScenarioConfig(offensive_mode=OffensiveMode.SIDEWALL, defensive_mode=DefensiveMode.FRONT_INTERCEPT, player_role=PlayerRole.DEFENSE),
-            ],
-        )
         # Free Goal (Offense focus) - Low boost for finishing practice
         free_goal = Playlist(
             name="Free Goal",
@@ -245,10 +221,10 @@ class PlaylistRegistry:
             name="Mechanical Offense",
             description="Practice complex mechanical plays and wall work",
             scenarios=[
-                ScenarioConfig(offensive_mode=OffensiveMode.SIDEWALL, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.SIDEWALL, defensive_mode=DefensiveMode.NET, player_role=PlayerRole.OFFENSE),
                 ScenarioConfig(offensive_mode=OffensiveMode.SIDEWALL_BREAKOUT, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.OFFENSE),
-                ScenarioConfig(offensive_mode=OffensiveMode.BACKPASS, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.OFFENSE),
-                ScenarioConfig(offensive_mode=OffensiveMode.BACK_CORNER_BREAKOUT, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.BACKPASS, defensive_mode=DefensiveMode.CORNER, player_role=PlayerRole.OFFENSE),
+                ScenarioConfig(offensive_mode=OffensiveMode.BACKPASS, defensive_mode=DefensiveMode.NET, player_role=PlayerRole.OFFENSE),
             ],
             settings=PlaylistSettings(timeout=10.0, shuffle=True, boost_range=(74, 100))  # High boost for mechanics
         )
@@ -269,25 +245,10 @@ class PlaylistRegistry:
             settings=PlaylistSettings(timeout=8.0, shuffle=True, boost_range=(40, 90), rule_zero=True)  # Rule zero for realistic challenge timing
         )
         
-        # 1v1 Mixed (Both roles) - Full boost range for varied scenarios
-        ones_mixed = Playlist(
-            name="1v1 Mixed",
-            description="Mix of offensive and defensive scenarios",
-            scenarios=[
-                ScenarioConfig(offensive_mode=OffensiveMode.POSSESSION, defensive_mode=DefensiveMode.NEAR_SHADOW, player_role=PlayerRole.OFFENSE),
-                ScenarioConfig(offensive_mode=OffensiveMode.CORNER, defensive_mode=DefensiveMode.CORNER, player_role=PlayerRole.DEFENSE),
-                ScenarioConfig(offensive_mode=OffensiveMode.SIDEWALL, defensive_mode=DefensiveMode.FAR_SHADOW, player_role=PlayerRole.OFFENSE),
-                ScenarioConfig(offensive_mode=OffensiveMode.BREAKOUT, defensive_mode=DefensiveMode.NET, player_role=PlayerRole.DEFENSE),
-            ],
-            settings=PlaylistSettings(timeout=10.0, shuffle=True, boost_range=(12, 100))
-        )
-        
         self.register_playlist(ground_offense)
         self.register_playlist(midfield_outplays)
-        self.register_playlist(midfield_challenges)
         self.register_playlist(free_goal)
         self.register_playlist(shadow_defense)
         self.register_playlist(reactive_defense)
-        self.register_playlist(ones_mixed)
         self.register_playlist(mechanical)
         self.register_playlist(defensive_challenges_mix) 

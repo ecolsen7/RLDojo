@@ -22,6 +22,8 @@ class ScenarioMode(BaseGameMode):
         self.last_menu_phase_time = 0
         self.custom_mode_active = False
         self.custom_scenario = None
+        self.custom_trial_active = False
+        self.trial_start_time = 0
             
     def set_custom_scenario(self, scenario):
         """Set the custom scenario"""
@@ -76,6 +78,7 @@ class ScenarioMode(BaseGameMode):
             ScenarioPhase.CUSTOM_OFFENSE: self._handle_custom_phase,
             ScenarioPhase.CUSTOM_BALL: self._handle_custom_phase,
             ScenarioPhase.CUSTOM_DEFENSE: self._handle_custom_phase,
+            ScenarioPhase.CUSTOM_TRIAL: self._handle_custom_trial_phase,
             ScenarioPhase.CUSTOM_NAMING: self._handle_custom_phase,
         }
         
@@ -156,6 +159,16 @@ class ScenarioMode(BaseGameMode):
         """Handle custom sandbox phases"""
         if self.rlbot_game_state:
             self.set_game_state(self.rlbot_game_state)
+            
+    def _handle_custom_trial_phase(self, packet):
+        if not self.custom_trial_active:
+            self.custom_trial_active = True
+            self.trial_start_time = self.game_state.cur_time
+        
+        if self.game_state.cur_time - self.trial_start_time > 3.0:
+            self.custom_trial_active = False
+            self.game_state.game_phase = ScenarioPhase.CUSTOM_OFFENSE
+            return
     
     def _setup_playlist_mode(self):
         """Setup scenario based on current playlist"""

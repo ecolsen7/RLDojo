@@ -42,7 +42,8 @@ class ScenarioPhase(Enum):
     CUSTOM_BALL = 5
     CUSTOM_DEFENSE = 6
     CUSTOM_NAMING = 7
-    FINISHED = 8
+    CUSTOM_TRIAL = 8
+    FINISHED = 9
 
 
 class RacePhase(Enum):

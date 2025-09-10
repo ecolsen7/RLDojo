@@ -53,8 +53,6 @@ class CustomPlaylistManager:
     def get_current_playlist_name(self):
         return self.current_playlist_name
         
-    def get_current_playlist_scenarios(self):
-        return self.current_scenarios
     
     def get_current_playlist_boost_range(self):
         return self.current_boost_range
@@ -208,16 +206,7 @@ class CustomPlaylistManager:
         else:
             print("Please select offensive mode, defensive mode, and player role first")
     
-    def _clear_all_scenarios(self):
-        """Clear all scenarios"""
-        self.current_scenarios = []
-        print("All scenarios cleared")
     
-    def _remove_scenario(self, index):
-        """Remove scenario at given index"""
-        if 0 <= index < len(self.current_scenarios):
-            removed = self.current_scenarios.pop(index)
-            print(f"Removed scenario: {removed.offensive_mode.name} vs {removed.defensive_mode.name}")
     
     def _set_min_boost(self, boost):
         """Set minimum boost value"""
@@ -239,15 +228,6 @@ class CustomPlaylistManager:
         self.current_rule_zero = not self.current_rule_zero
         print(f"Rule zero: {'ON' if self.current_rule_zero else 'OFF'}")
     
-    def _show_current_settings(self):
-        """Show current playlist settings"""
-        print("=== Current Playlist Settings ===")
-        print(f"Name: {self.current_playlist_name or 'Not set'}")
-        print(f"Scenarios: {len(self.current_scenarios)}")
-        print(f"Boost Range: {self.current_boost_range[0]}-{self.current_boost_range[1]}")
-        print(f"Timeout: {self.current_timeout}s")
-        print(f"Rule Zero: {'ON' if self.current_rule_zero else 'OFF'}")
-        print("==================================")
     
     def _save_current_playlist(self):
         """Save the currently configured playlist to file, and register it in the playlist registry"""
@@ -300,12 +280,6 @@ class CustomPlaylistManager:
                     custom_playlists[file.replace(".json", "")] = Playlist.model_validate_json(f.read())
         return custom_playlists
     
-    def delete_custom_playlist(self, name):
-        """Delete a custom playlist"""
-        if name in self.custom_playlists:
-            del self.custom_playlists[name]
-            self.save_custom_playlists()
-            print(f"Deleted playlist: {name}") 
 
 def _get_custom_playlists_path():
     appdata_path = os.path.expandvars("%APPDATA%")

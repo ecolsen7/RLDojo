@@ -1,9 +1,6 @@
-from enum import Enum
-from typing import Optional
 import utils
 
 import numpy as np
-import matplotlib.pyplot as plt
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator, GameInfoState
 
 class Race:

@@ -15,12 +15,6 @@ def hasattrdeep(obj, *names):
        obj = getattr(obj, name)
     return True
 
-def get_velocity_from_yaw(yaw, min_velocity, max_velocity):
-    # yaw is in radians, use this to get the ratio of x/y velocity
-    # X = cos(yaw) 
-    # Y = sin(yaw)
-    # Z = 0
-    return np.array([np.cos(yaw) * min_velocity, np.sin(yaw) * min_velocity, 0])
 
 def add_vector3(vector1, vector2):
     return Vector3(vector1.x + vector2.x, vector1.y + vector2.y, vector1.z + vector2.z)
@@ -28,8 +22,6 @@ def add_vector3(vector1, vector2):
 def vector3_to_list(vector3):
     return [vector3.x, vector3.y, vector3.z]
 
-def subtract_vector3(vector1, vector2):
-    return Vector3(vector1.x - vector2.x, vector1.y - vector2.y, vector1.z - vector2.z)
 
 def get_play_yaw():
     rand1 = np.random.random()
