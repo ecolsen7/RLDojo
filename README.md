@@ -1,3 +1,7 @@
+| [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/4bHnGBm2Dbw/0.jpg)](https://www.youtube.com/watch?v=4bHnGBm2Dbw) |
+|:--:| 
+| *Demo video of RLDojo* |
+
 # Overview / TL;DR
 
 Free play, training packs, and custom maps are great - but winning real games requires reading, reacting to, and outplaying your opponents. That’s why, in real sports, practicing specific scenarios against other players is a critical component of training. 
