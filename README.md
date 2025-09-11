@@ -58,21 +58,21 @@ The goal of RLDojo is to make these scenarios (and infinitely more) possible to 
 
 # Installation
 Installation guide here: https://www.youtube.com/watch?v=1GbHdYeG1cc
+Note: RLDojo has now been added to RLBotPack, so no need to download the RLDojo release manually!
 
 To get RLDojo up and running:
 1. Install RLBot: [rlbot.org](https://rlbot.org/)
 2. In RLBotGUI, go to `+Add` -> `Download Bot Pack` (this will download the 'standard' bots)
-3. Download the latest RLDojo release: https://github.com/ecolsen7/RLDojo/releases and extract it
-4. In RLBotGUI, go to `+Add` -> `Load Folder` and select the RLDojo folder that you just downloaded/created
-5. In RLBotGUI, find `Dojo` under the `Scripts` section
+3. In RLBotGUI, select the `All bots` tab at the top, and find `Dojo` under the `Scripts` section
    - If there is a yellow triangle next to `Dojo`, click it to install any needed packages
-   - Enable `Dojo` by clicking the toggle
-6. In RLBotGUI, click the `Mutators` option at the bottom. Change `Match Length` to "Unlimited", and `Respawn Time` to "Disable Goal Reset"
-7. In RLBotGUI, click the `Extras` option at the bottom. Select the following:
-8. <img width="421" height="289" alt="image" src="https://github.com/user-attachments/assets/a7c5a078-4c64-409a-a16f-a01658826b1a" />
-9. Make sure "Human" is on the Blue team, and add any bot (I recommend starting with `Necto`) to the Orange team.
-10. Hit `Launch Rocket League and start match`.
-11. Have fun!
+4. Enable `Dojo` by clicking the toggle
+5. In RLBotGUI, click the `Mutators` option at the bottom. Change `Match Length` to "Unlimited", and `Respawn Time` to "Disable Goal Reset"
+6. In RLBotGUI, click the `Extras` option at the bottom. Select the following:
+ <img width="421" height="289" alt="image" src="https://github.com/user-attachments/assets/a7c5a078-4c64-409a-a16f-a01658826b1a" />
+
+7. Make sure "Human" is on the Blue team, and add any bot (I recommend starting with `Necto`) to the Orange team.
+8. Hit `Launch Rocket League and start match`.
+9. Have fun!
 
 
 # How much does it cost?
