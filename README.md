@@ -58,6 +58,7 @@ The goal of RLDojo is to make these scenarios (and infinitely more) possible to 
 
 # Installation
 Installation guide here: https://www.youtube.com/watch?v=1GbHdYeG1cc
+
 Note: RLDojo has now been added to RLBotPack, so no need to download the RLDojo release manually!
 
 To get RLDojo up and running:
