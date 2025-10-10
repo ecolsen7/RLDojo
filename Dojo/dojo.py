@@ -178,10 +178,24 @@ class Dojo(BaseScript):
                 UIElement(str(option), function=self._set_race_mode, function_args=option)
             )
         self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
+
+    def _next_scenario(self):
+        """Move to the next scenario"""
+        self.game_state.manual_reset_requested = True
+
+    def _toggle_timeout(self):
+        """Toggle the timeout"""
+        self.game_state.enable_timeouts = not self.game_state.enable_timeouts
+
+    def _toggle_freeze_scenario(self):
+        """Toggle freeze scenario"""
+        self.game_state.freeze_scenario = not self.game_state.freeze_scenario
+
     
     def _setup_keyboard_handlers(self):
         """Set up all keyboard hotkeys"""
         keyboard.add_hotkey('m', self._toggle_menu)
+        keyboard.add_hotkey('n', self._next_scenario)
         keyboard.add_hotkey('left', self._handle_left)
         keyboard.add_hotkey('right', self._handle_right)
         keyboard.add_hotkey('down', self._handle_down)
@@ -190,6 +204,8 @@ class Dojo(BaseScript):
         keyboard.add_hotkey('b', self._handle_back)
         keyboard.add_hotkey('enter', self._enter_handler)
         keyboard.add_hotkey('1', self._handle_custom_trial)
+        keyboard.add_hotkey('5', self._toggle_timeout)
+        keyboard.add_hotkey('6', self._toggle_freeze_scenario)
 
         # For all other letters, submit the letter as a text input
         for letter in string.ascii_lowercase:
@@ -202,7 +218,7 @@ class Dojo(BaseScript):
         # Allow backspace in text input
         keyboard.add_hotkey('backspace', self._handle_backspace)
         
-    ### Keyboard handler utilities 
+    ### Keyboard handler utilities
     def _add_hotkey_with_arg(self, hotkey, function, function_args):
         def wrapper():
             function(function_args)
@@ -736,7 +752,8 @@ class Dojo(BaseScript):
         """Clean up keyboard handlers"""
         keyboard.unhook_all()
 
+
 # Entry point
 if __name__ == "__main__":
     script = Dojo()
-    script.run() 
+    script.run()

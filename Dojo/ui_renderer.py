@@ -24,13 +24,15 @@ class UIRenderer:
         seconds_str = f"{seconds:02d}"
         
         # Prepare text content
-        text = "Welcome to the Dojo. Press 'm' to enter menu"
+        text = "Welcome to the Dojo. Press 'm' to enter menu. \n Press 'n' to go to next scenario."
         previous_record = "No record"
         
         if self.game_state.gym_mode == GymMode.SCENARIO:
             scores = f"Human: {self.game_state.human_score} Bot: {self.game_state.bot_score}"
             total_score = f"Total: {self.game_state.human_score + self.game_state.bot_score}"
             time_since_start = f"Time: {minutes}:{seconds_str}"
+            timeout_enabled = f"Timeouts enabled (toggle with '5'): {self.game_state.enable_timeouts}"
+            freeze_scenario_enabled = f"Scenario frozen (toggle with '6'): {self.game_state.freeze_scenario}"
             offensive_mode_name = f"Offensive Mode: {self.game_state.offensive_mode.name}"
             defensive_mode_name = f"Defensive Mode: {self.game_state.defensive_mode.name}"
             player_role_name = "offense" if self.game_state.player_offense else "defense"
@@ -84,8 +86,16 @@ class UIRenderer:
                 1, 1, player_role_string, self.renderer.white()
             )
             self.renderer.draw_string_2d(
-                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 220, 
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 220,
                 1, 1, game_phase_name, self.renderer.white()
+            )
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 250,
+                1, 1, timeout_enabled, self.renderer.white()
+            )
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 280,
+                1, 1, freeze_scenario_enabled, self.renderer.white()
             )
         self.renderer.end_rendering()
     
