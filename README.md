@@ -73,3 +73,5 @@ To get RLDojo up and running:
 It’s free! My motivation for making this is that I love this game, and I want to see it and its competitive community thrive.
 
 If you feel particularly inclined to give back, feel free to follow me on [Twitch](https://www.twitch.tv/smoothrik) and/or [Youtube](https://www.youtube.com/@smooth_rik)!
+
+If that's not enough, feel free to [buy me a coffee](buymeacoffee.com/ecolsen74) :)
