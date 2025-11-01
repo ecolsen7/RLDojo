@@ -4,6 +4,7 @@ import string
 from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
+from input_management.binding_manager import HotkeyBindingsManager, HotkeyAction
 # Import our new modular components
 from game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_SELECTION_LIST, CUSTOM_MODES
 from game_modes import ScenarioMode, RaceMode
@@ -54,6 +55,9 @@ class Dojo(BaseScript):
         
         # Internal state
         self.rlbot_game_state = None
+
+        # Hotkey management
+        self.binding_manager: HotkeyBindingsManager = None
         
     def run(self):
         """Main game loop"""
@@ -116,7 +120,13 @@ class Dojo(BaseScript):
         
         # Set up keyboard handlers
         self._setup_keyboard_handlers()
-        
+
+        # Set up controller handlers
+        self.binding_manager = HotkeyBindingsManager()
+        self.binding_manager.load()  # Load all user defined bindings
+        self._setup_controller_handlers()
+        self.binding_manager.register_bindings()
+
         # Set initial pause time
         self.game_state.pause_time = constants.DEFAULT_PAUSE_TIME
     
@@ -191,7 +201,16 @@ class Dojo(BaseScript):
         """Toggle freeze scenario"""
         self.game_state.freeze_scenario = not self.game_state.freeze_scenario
 
-    
+    def _setup_controller_handlers(self):
+        self.binding_manager.set_action_callback(action=HotkeyAction.NEXT_SCENARIO, callback=self._next_scenario)
+        self.binding_manager.set_action_callback(action=HotkeyAction.TOGGLE_FREEZE_SCENARIO, callback=self._toggle_freeze_scenario)
+        self.binding_manager.set_action_callback(action=HotkeyAction.TOGGLE_TIMEOUT, callback=self._toggle_timeout)
+
+        # TODO: Implement these
+        # self.binding_manager.set_action_callback(action=HotkeyAction.PREVIOUS_SCENARIO, callback=self._prev_scenario)
+        # self.binding_manager.set_action_callback(action=HotkeyAction.RESET_SCENARIO, callback=self._reset_scenario)
+        # self.binding_manager.set_action_callback(action=HotkeyAction.CAPTURE_REPLAY_STATE, callback=self._capture_replay_state)
+
     def _setup_keyboard_handlers(self):
         """Set up all keyboard hotkeys"""
         keyboard.add_hotkey('m', self._toggle_menu)
@@ -751,6 +770,7 @@ class Dojo(BaseScript):
     def cleanup(self):
         """Clean up keyboard handlers"""
         keyboard.unhook_all()
+        self.binding_manager.stop()
 
 
 # Entry point
