@@ -16,6 +16,7 @@ import constants
 import modifier
 import utils
 from race_record import RaceRecord, RaceRecords, get_race_records
+from custom_replay import CustomReplayManager
 from custom_playlist import CustomPlaylistManager
 from playlist import PlaylistRegistry, PlayerRole
 from custom_scenario import CustomScenario, get_custom_scenarios
@@ -53,14 +54,17 @@ class Dojo(BaseScript):
         # Custom playlist manager
         self.custom_playlist_manager = None
         self.playlist_registry = None  # Will be initialized after game interface is available
-        
+
+        # Custom replay manager
+        self.custom_replay_manager = None
+
         # Internal state
         self.rlbot_game_state = None
 
         # Hotkey management
         self.binding_menu_manager: HotkeyBindingMenu = None
         self.hotkey_manager: CustomHotkeyManager = None
-        
+
     def run(self):
         """Main game loop"""
         while True:
@@ -111,7 +115,10 @@ class Dojo(BaseScript):
         self.custom_playlist_manager = CustomPlaylistManager(renderer=self.game_interface.renderer, main_menu_renderer=self.menu_renderer)
         self.playlist_registry = PlaylistRegistry(self.game_interface.renderer)
         self.playlist_registry.set_custom_playlist_manager(self.custom_playlist_manager)
-        
+
+        # Initialize custom playlist manager for storing replay states
+        self.custom_replay_manager = CustomReplayManager(renderer=self.game_interface.renderer, main_menu_renderer=self.menu_renderer, rlbot_get_game_tick_packet_function=self.get_game_tick_packet)
+
         # Initialize game modes
         self.scenario_mode = ScenarioMode(self.game_state, self.game_interface)
         self.race_mode = RaceMode(self.game_state, self.game_interface)
@@ -128,18 +135,22 @@ class Dojo(BaseScript):
         self.binding_menu_manager = HotkeyBindingMenu(renderer=self.game_interface.renderer,
                                                       main_menu_renderer=self.menu_renderer,
                                                       hotkey_manager=self.hotkey_manager)
-        
+
         # Initialize menu system
         self._setup_menus()
         self.binding_menu_manager.main_menu_renderer = self.menu_renderer
         self.custom_playlist_manager.main_menu_renderer = self.menu_renderer
-        
+        self.custom_replay_manager.main_menu_renderer = self.menu_renderer
+
         # Set up keyboard handlers
         self._setup_keyboard_handlers()
 
         # Set initial pause time
         self.game_state.pause_time = constants.DEFAULT_PAUSE_TIME
-    
+
+    def _reset_current_mode(self):
+        self.current_mode = None
+
     def _setup_menus(self):
         """Set up all menu systems"""
         # Main menu
@@ -183,6 +194,10 @@ class Dojo(BaseScript):
         if self.custom_playlist_manager:
             custom_playlist_menu = self.custom_playlist_manager.create_playlist_creation_menu()
             self.menu_renderer.add_element(UIElement('Create Custom Playlist', submenu=custom_playlist_menu))
+
+        if self.custom_replay_manager:
+            custom_replay_playlist_menu = self.custom_replay_manager.create_playlist_creation_menu()
+            self.menu_renderer.add_element(UIElement('Create Custom Playlist From Replay', submenu=custom_replay_playlist_menu, function=self._reset_current_mode))
 
         # Custom scenario creation menu
         self.custom_scenario_creation_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
