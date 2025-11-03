@@ -95,19 +95,23 @@ class ControllerManager:
         Returns:
             str: The name of the button that was pressed, or None if timeout occurred.
         """
+        print("wait_for_rebind()")
         with self.rebind_lock:
             self.rebind_mode = True
             self.rebind_result = None
             self.rebind_event.clear()
 
         # Wait for the pygame thread to detect a button press
+        print("Waiting for rebind...")
         button_detected = self.rebind_event.wait(timeout=timeout)
+        print("Wait complete")
 
         with self.rebind_lock:
             self.rebind_mode = False
             result = self.rebind_result
             self.rebind_result = None
 
+        print("Returning results")
         return result if button_detected else None
 
     def cancel_rebind(self):

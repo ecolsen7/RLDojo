@@ -2,15 +2,18 @@ import os
 from enum import Enum
 from typing import Dict, List, Callable, Optional
 from pydantic import BaseModel, Field
+import asyncio
+
+from .async_event_loop_manager import AsyncManager
 from .controller_manager import ControllerManager
 
 class HotkeyAction(Enum):
-    RESET_SCENARIO = "reset_scenario"
+    # RESET_SCENARIO = "reset_scenario"
     NEXT_SCENARIO = "next_scenario"
-    PREVIOUS_SCENARIO = "previous_scenario"
+    # PREVIOUS_SCENARIO = "previous_scenario"
     TOGGLE_TIMEOUT = "toggle_timeout"
-    TOGGLE_FREEZE_SCENARIO = "toggle_freeze_state"
-    CAPTURE_REPLAY_STATE = "capture_replay_state"
+    TOGGLE_FREEZE_SCENARIO = "toggle_freeze_scenario"
+    # CAPTURE_REPLAY_STATE = "capture_replay_state"
 
 
 class HotkeyBindingsConfig(BaseModel):
@@ -28,7 +31,7 @@ class HotkeyBindingsManager:
     """
     
     def __init__(self):
-        self.controller_manager = ControllerManager(debug_mode=True)
+        self.controller_manager = ControllerManager()
         self.controller_manager.start()
         # Map from action to list of bindings (e.g., {"reset_scenario": ["A", "R", "Start"]})
         self.action_bindings: Dict[HotkeyAction, List[str]] = {action: [] for action in HotkeyAction}
@@ -41,6 +44,9 @@ class HotkeyBindingsManager:
         """Stop the hotkey manager"""
         self.unregister_bindings()
         self.controller_manager.stop()
+
+    def get_currently_bound_keys(self, action: HotkeyAction):
+        return self.action_bindings[action]
     
     def set_action_callback(self, action: HotkeyAction, callback: Callable) -> None:
         """Set the callback function for an action"""
@@ -83,7 +89,7 @@ class HotkeyBindingsManager:
                 continue
 
             for binding in bindings:
-                self.controller_manager.register_hotkey(binding, lambda: (print(callback), callback()))
+                self.controller_manager.register_hotkey(binding, callback)
                 self.registered_hotkeys.add(binding)
 
         print(f"Registered {len(self.registered_hotkeys)} hotkey bindings")
@@ -101,28 +107,75 @@ class HotkeyBindingsManager:
     def get_bindings(self, action: HotkeyAction) -> List[str]:
         """Get all bindings for an action"""
         return self.action_bindings[action].copy()
-    
-    def rebind_action_interactively(self, action: HotkeyAction, timeout: Optional[float] = 10.0) -> Optional[str]:
+
+    def start_interactive_rebind_for_action(
+            self,
+            action: HotkeyAction,
+            callback: Callable[[HotkeyAction, Optional[str]], None],
+            timeout: Optional[float] = 10.0
+    ) -> None:
         """
         Interactively rebind an action by waiting for a controller button press.
+        This method returns immediately and runs the rebinding in the background.
 
         Args:
             action: The action to rebind
+            callback: Callback function to call when binding is complete
             timeout: Timeout in seconds (None for no timeout)
-
-        Returns:
-            The name of the button pressed, or None if timeout occurred
         """
-        print(f"Press a button to bind to '{action.value}'...")
-        binding = self.controller_manager.wait_for_rebind(timeout=timeout)
+        async_manager = AsyncManager.get_instance()
+    
+        # Schedule the coroutine to run in the background (non-blocking)
+        print("Starting interactive rebind...")
+        future = async_manager.run_coroutine(
+            self._rebind_action_interactively_async(action, callback, timeout)
+        )
+        
+        # Add error handling
+        def _done_callback(f):
+            try:
+                f.result()
+            except Exception as e:
+                print(f"Error in rebind coroutine: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        future.add_done_callback(_done_callback)
+        print("Rebind scheduled in background")
+
+    async def _rebind_action_interactively_async(
+            self,
+            action: HotkeyAction,
+            callback: Callable[[HotkeyAction, Optional[str]], None],
+            timeout: Optional[float] = 10.0
+    ) -> None:
+        """
+        Async implementation of interactive rebinding.
+
+        Args:
+            action: The action to rebind
+            callback: Callback function to call when binding is complete
+            timeout: Timeout in seconds (None for no timeout)
+        """
+        print(f"Press a button to bind to '{action}'...")
+    
+        # Run the blocking wait_for_rebind in a thread pool
+        # Use asyncio.get_running_loop() instead of get_event_loop()
+        loop = asyncio.get_running_loop()
+        binding = await loop.run_in_executor(
+            None,
+            self.controller_manager.wait_for_rebind, 
+            timeout
+        )
 
         if binding:
             self._add_binding(action, binding)
-            print(f"Action '{action.value}' bound to '{binding}'")
+            print(f"Action '{action}' bound to '{binding}'")
         else:
-            print(f"Rebind timeout for action '{action.value}'")
+            print(f"Rebind timeout for action '{action}'")
 
-        return binding
+        if callback:
+            callback(action, binding)
     
     def save(self, filepath: Optional[str] = None) -> None:
         """
