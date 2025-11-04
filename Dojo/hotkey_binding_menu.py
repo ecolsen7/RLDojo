@@ -38,7 +38,7 @@ class HotkeyBindingMenu:
             submenu = MenuRenderer(self.renderer, columns=1)
             submenu.add_element(UIElement(f"Rebinding action: {hotkey.value}",
                                           header=True))
-            submenu.add_element(UIElement(f"Press any key on a controller to bind",
+            submenu.add_element(UIElement(f"Press any button on controller or keyboard to bind",
                                           header=False))
             submenu.add_element(UIElement(f"To cancel, wait ", display_value_function=show_time_out,
                                           header=False))
@@ -48,8 +48,8 @@ class HotkeyBindingMenu:
                                        display_value_function=show_value,
                                        submenu=submenu,
                                        ))
-        reset_and_save = lambda: self.binding_manager.reset_default_bindings() and self.binding_manager.save()
-        menu.add_element(UIElement("Reset all to default", function=reset_and_save))
+        menu.add_element(UIElement("Reset all to default", function=self.binding_manager.reset_default_bindings))
+        menu.add_element(UIElement("Clear all bindings", function=self.binding_manager.clear_all_bindings))
         menu.add_element(UIElement("Undo changes", function=self.binding_manager.load))
         menu.add_element(UIElement("Save changes", function=self.binding_manager.save))
 

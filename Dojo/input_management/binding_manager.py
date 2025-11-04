@@ -6,6 +6,8 @@ import asyncio
 
 from .async_event_loop_manager import AsyncManager
 from .controller_manager import ControllerManager
+from .keyboard_manager import KeyboardManager
+
 
 class HotkeyAction(Enum):
     # RESET_SCENARIO = "reset_scenario"
@@ -32,7 +34,9 @@ class HotkeyBindingsManager:
     
     def __init__(self):
         self.controller_manager = ControllerManager()
+        self.keyboard_manager = KeyboardManager()
         self.controller_manager.start()
+        
         # Map from action to list of bindings (e.g., {"reset_scenario": ["A", "R", "Start"]})
         self.action_bindings: Dict[HotkeyAction, List[str]] = {action: [] for action in HotkeyAction}
         # Map from action to callback function
@@ -44,6 +48,7 @@ class HotkeyBindingsManager:
         """Stop the hotkey manager"""
         self.unregister_bindings()
         self.controller_manager.stop()
+        self.keyboard_manager.stop()
 
     def get_currently_bound_keys(self, action: HotkeyAction):
         return self.action_bindings[action]
@@ -78,7 +83,7 @@ class HotkeyBindingsManager:
         print("Reset to default hotkey bindings")
 
     def register_bindings(self) -> None:
-        """Register all configured bindings with the ControllerHotkeyManager"""
+        """Register all configured bindings with both managers"""
         # Unregister previous bindings first
         self.unregister_bindings()
 
@@ -89,17 +94,22 @@ class HotkeyBindingsManager:
                 continue
 
             for binding in bindings:
-                self.controller_manager.register_hotkey(binding, callback)
+                # Try keyboard first, then controller
+                if binding.startswith(KeyboardManager.KEYBOARD_PREFIX):
+                    self.keyboard_manager.register_hotkey(binding, callback)
+                else:
+                    self.controller_manager.register_hotkey(binding, callback)
                 self.registered_hotkeys.add(binding)
 
         print(f"Registered {len(self.registered_hotkeys)} hotkey bindings")
 
     def unregister_bindings(self) -> None:
-        """Unregister all bindings from the ControllerHotkeyManager"""
-        # Clear the controller manager's hotkeys dict
+        """Unregister all bindings from both managers"""
         for hotkey in self.registered_hotkeys:
-            if hotkey in self.controller_manager.hotkeys:
-                del self.controller_manager.hotkeys[hotkey]
+            if hotkey.startswith(KeyboardManager.KEYBOARD_PREFIX):
+                self.keyboard_manager.unregister_hotkey(hotkey)
+            else:
+                self.controller_manager.unregister_hotkey(hotkey)
 
         self.registered_hotkeys.clear()
         print("Unregistered all hotkey bindings")
@@ -115,7 +125,7 @@ class HotkeyBindingsManager:
             timeout: Optional[float] = 10.0
     ) -> None:
         """
-        Interactively rebind an action by waiting for a controller button press.
+        Interactively rebind an action by waiting for a controller button or keyboard key press.
         This method returns immediately and runs the rebinding in the background.
 
         Args:
@@ -151,22 +161,47 @@ class HotkeyBindingsManager:
     ) -> None:
         """
         Async implementation of interactive rebinding.
+        Waits for either a controller button or keyboard key press (whichever comes first).
 
         Args:
             action: The action to rebind
             callback: Callback function to call when binding is complete
             timeout: Timeout in seconds (None for no timeout)
         """
-        print(f"Press a button to bind to '{action}'...")
+        print(f"Press a controller button or keyboard key to bind to '{action}'...")
     
-        # Run the blocking wait_for_rebind in a thread pool
-        # Use asyncio.get_running_loop() instead of get_event_loop()
         loop = asyncio.get_running_loop()
-        binding = await loop.run_in_executor(
+        
+        # Create tasks for both controller and keyboard input
+        controller_task = loop.run_in_executor(
             None,
             self.controller_manager.wait_for_rebind, 
             timeout
         )
+        
+        keyboard_task = loop.run_in_executor(
+            None,
+            self.keyboard_manager.wait_for_rebind,
+            timeout
+        )
+        
+        # Wait for whichever completes first
+        done, pending = await asyncio.wait(
+            [controller_task, keyboard_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+        # Cancel the other task
+        for task in pending:
+            task.cancel()
+        
+        # Get the result from the completed task
+        binding = None
+        for task in done:
+            result = await task
+            if result:
+                binding = result
+                break
 
         if binding:
             self._add_binding(action, binding)
@@ -199,6 +234,7 @@ class HotkeyBindingsManager:
         with open(filepath, "w") as f:
             f.write(config.model_dump_json(indent=2))
 
+        self.register_bindings()
         print(f"Saved hotkey bindings to {filepath}")
     
     def load(self, filepath: Optional[str] = None) -> None:
@@ -231,6 +267,7 @@ class HotkeyBindingsManager:
             except ValueError:
                 print(f"Warning: Unknown action '{action_str}' in config file, skipping")
 
+        self.register_bindings()
         print(f"Loaded hotkey bindings from {filepath}")
     
     def print_bindings(self) -> None:
@@ -248,7 +285,6 @@ class HotkeyBindingsManager:
         config_dir = os.path.join(appdata_path, "RLBot", "Dojo")
         os.makedirs(config_dir, exist_ok=True)
         return os.path.join(config_dir, "hotkey_bindings.json")
-
 
     def _add_binding(self, action: HotkeyAction, binding: str) -> None:
         """
@@ -274,4 +310,3 @@ class HotkeyBindingsManager:
         if binding in self.action_bindings[action]:
             self.action_bindings[action].remove(binding)
             print(f"Removed binding '{binding}' from action '{action.value}'")
-

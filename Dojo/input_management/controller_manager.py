@@ -6,9 +6,11 @@ import pygame
 # This is needed to capture input even when Rocket League is in focus
 os.environ["SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"] = "1"
 
+
 class ControllerManager:
+    """Manages game controller input using pygame"""
+    
     # Standard SDL Game Controller button mapping
-    # This works for most modern controllers (Xbox, PlayStation, Switch Pro, etc.)
     BUTTON_NAMES = {
         0: "A",  # Cross on PS, B on Nintendo
         1: "B",  # Circle on PS, A on Nintendo
@@ -44,7 +46,7 @@ class ControllerManager:
         self.keys_pressed = []
         self.dpad_pressed = []
         self.joysticks = {}
-
+        
         # Rebinding state
         self.rebind_mode = False
         self.rebind_result = None
@@ -58,7 +60,6 @@ class ControllerManager:
 
     def get_button_name(self, button_index, joystick):
         """Get a human-readable name for a button."""
-        # For controllers with more buttons than our standard mapping
         if button_index in self.BUTTON_NAMES:
             return self.BUTTON_NAMES[button_index]
         else:
@@ -69,57 +70,64 @@ class ControllerManager:
         return self.HAT_NAMES.get(hat_position, None)
 
     def start(self):
+        """Start the controller input thread"""
         self.running = True
         self.thread = threading.Thread(target=self._run)
         self.thread.start()
         return self.thread
 
     def stop(self):
+        """Stop the controller input thread"""
         self.running = False
-        self.thread.join()
+        if self.thread:
+            self.thread.join()
+
+    def unregister_hotkey(self, hotkey):
+        """Unregister a specific controller hotkey"""
+        if hotkey in self.hotkeys:
+            del self.hotkeys[hotkey]
 
     def get_keys_pressed(self):
+        """Get list of currently pressed controller buttons"""
         return self.keys_pressed
 
     def register_hotkey(self, hotkey, callback):
+        """Register a controller button hotkey"""
         self.hotkeys[hotkey] = callback
 
     def wait_for_rebind(self, timeout=None):
         """
         Wait for a controller button press and return the button name.
-        This method blocks until a button is pressed or timeout is reached.
-
+        
         Args:
             timeout: Optional timeout in seconds. None means wait indefinitely.
-
+            
         Returns:
             str: The name of the button that was pressed, or None if timeout occurred.
         """
-        print("wait_for_rebind()")
+        print("ControllerManager.wait_for_rebind()")
         with self.rebind_lock:
             self.rebind_mode = True
             self.rebind_result = None
             self.rebind_event.clear()
 
-        # Wait for the pygame thread to detect a button press
-        print("Waiting for rebind...")
-        button_detected = self.rebind_event.wait(timeout=timeout)
-        print("Wait complete")
+        try:
+            # Wait for the pygame thread to detect a button press
+            print("Waiting for controller input...")
+            button_detected = self.rebind_event.wait(timeout=timeout)
+            print("Wait complete")
 
-        with self.rebind_lock:
-            self.rebind_mode = False
-            result = self.rebind_result
-            self.rebind_result = None
+            with self.rebind_lock:
+                self.rebind_mode = False
+                result = self.rebind_result
+                self.rebind_result = None
 
-        print("Returning results")
-        return result if button_detected else None
-
-    def cancel_rebind(self):
-        """Cancel an ongoing rebind operation."""
-        with self.rebind_lock:
-            self.rebind_mode = False
-            self.rebind_result = None
-        self.rebind_event.set()
+            print("Returning controller result")
+            return result if button_detected else None
+        finally:
+            # Ensure rebind mode is disabled
+            with self.rebind_lock:
+                self.rebind_mode = False
 
     def _initialize_pygame(self):
         """Initialize pygame and debug window if debug mode is enabled."""
@@ -156,8 +164,17 @@ class ControllerManager:
                 return
 
         # Normal hotkey handling
+        print(f"Checking if '{button_name}' is in hotkeys: {button_name in self.hotkeys}")
         if button_name in self.hotkeys:
-            self.hotkeys[button_name]()
+            print(f"Calling callback for '{button_name}'")
+            try:
+                self.hotkeys[button_name]()
+            except Exception as e:
+                print(f"Error calling callback for '{button_name}': {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"Available hotkeys: {list(self.hotkeys.keys())}")
 
     def _handle_button_up(self, event):
         """Handle button release events."""
