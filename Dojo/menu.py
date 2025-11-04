@@ -11,13 +11,16 @@ units_x_per_char = 11
 units_y_per_line = 40
 
 class UIElement():
-    ''' Each element consist of a text and a function to call when the element is clicked '''
     def __init__(self, text, function=None, function_args=None, 
     submenu=None, header=False, display_value_function=None, chooseable=False, spacer=False, 
     submenu_refresh_function=None):
         self.text = text
         self.function = function
-        self.function_args = function_args
+        # Normalize function_args to always be a tuple or None
+        if function_args is not None and not isinstance(function_args, tuple):
+            self.function_args = (function_args,)
+        else:
+            self.function_args = function_args
         self.selected = False
         self.entered = False
         self.submenu = submenu
@@ -237,7 +240,7 @@ class MenuRenderer():
             if element.selected:
                 if element.function:
                     if element.function_args:
-                        element.function(element.function_args)
+                        element.function(*element.function_args)
                     else:
                         element.function()
                 if element.submenu:
