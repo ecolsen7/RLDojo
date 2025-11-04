@@ -10,15 +10,12 @@ from .keyboard_manager import KeyboardManager
 
 
 class HotkeyAction(Enum):
-    # RESET_SCENARIO = "reset_scenario"
     NEXT_SCENARIO = "next_scenario"
-    # PREVIOUS_SCENARIO = "previous_scenario"
     TOGGLE_TIMEOUT = "toggle_timeout"
     TOGGLE_FREEZE_SCENARIO = "toggle_freeze_scenario"
-    # CAPTURE_REPLAY_STATE = "capture_replay_state"
 
 
-class HotkeyBindingsConfig(BaseModel):
+class HotkeyConfig(BaseModel):
     """Pydantic model for saving/loading hotkey bindings"""
     bindings: Dict[str, List[str]] = Field(default_factory=dict)
     
@@ -26,7 +23,7 @@ class HotkeyBindingsConfig(BaseModel):
         use_enum_values = True
 
 
-class HotkeyBindingsManager:
+class CustomHotkeyManager:
     """
     Manages hotkey bindings for actions. Supports multiple bindings per action.
     Users can bind both controller inputs and keyboard inputs to actions.
@@ -225,7 +222,7 @@ class HotkeyBindingsManager:
         # Convert action_bindings to serializable format
         bindings_dict = {action.value: bindings for action, bindings in self.action_bindings.items()}
 
-        config = HotkeyBindingsConfig(bindings=bindings_dict)
+        config = HotkeyConfig(bindings=bindings_dict)
 
         # Ensure directory exists
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -254,7 +251,7 @@ class HotkeyBindingsManager:
 
         # Load from file
         with open(filepath, "r") as f:
-            config = HotkeyBindingsConfig.model_validate_json(f.read())
+            config = HotkeyConfig.model_validate_json(f.read())
 
         # Clear existing bindings
         self.clear_all_bindings()

@@ -11,7 +11,7 @@ import time
 from copy import copy
 from typing import List, Dict, Any, Optional, Tuple
 
-from input_management.binding_manager import HotkeyAction, HotkeyBindingsManager
+from input_management.custom_hotkey_manager import HotkeyAction, CustomHotkeyManager
 from playlist import Playlist, ScenarioConfig, PlaylistSettings, PlayerRole
 from scenario import OffensiveMode, DefensiveMode
 from menu import MenuRenderer, UIElement
@@ -21,10 +21,10 @@ import asyncio
 
 
 class HotkeyBindingMenu:
-    def __init__(self, renderer, main_menu_renderer, binding_manager: HotkeyBindingsManager):
+    def __init__(self, renderer, main_menu_renderer, hotkey_manager: CustomHotkeyManager):
         self.renderer = renderer
         self.main_menu_renderer = main_menu_renderer
-        self.binding_manager = binding_manager
+        self.hotkey_manager = hotkey_manager
         self.binding_started = None  # Used to tell the user about timeout during a binding process
 
     def create_menu_elements(self):
@@ -33,7 +33,7 @@ class HotkeyBindingMenu:
 
         for hotkey in HotkeyAction:
             timeout = 5
-            show_value = lambda x=hotkey: self.binding_manager.get_currently_bound_keys(x)
+            show_value = lambda x=hotkey: self.hotkey_manager.get_currently_bound_keys(x)
             show_time_out = lambda x=hotkey: f"{self.binding_started + timeout - time.time():.0f} seconds"
             submenu = MenuRenderer(self.renderer, columns=1)
             submenu.add_element(UIElement(f"Rebinding action: {hotkey.value}",
@@ -48,17 +48,18 @@ class HotkeyBindingMenu:
                                        display_value_function=show_value,
                                        submenu=submenu,
                                        ))
-        menu.add_element(UIElement("Reset all to default", function=self.binding_manager.reset_default_bindings))
-        menu.add_element(UIElement("Clear all bindings", function=self.binding_manager.clear_all_bindings))
-        menu.add_element(UIElement("Undo changes", function=self.binding_manager.load))
-        menu.add_element(UIElement("Save changes", function=self.binding_manager.save))
+        menu.add_element(UIElement("Save/Load", header=True))
+        menu.add_element(UIElement("Reset all to default", function=self.hotkey_manager.reset_default_bindings))
+        menu.add_element(UIElement("Clear all bindings", function=self.hotkey_manager.clear_all_bindings))
+        menu.add_element(UIElement("Undo changes", function=self.hotkey_manager.load))
+        menu.add_element(UIElement("Save changes", function=self.hotkey_manager.save))
 
         return menu
 
     def _change_hotkey(self, hotkey, timeout=5):
         self.binding_started = time.time()
         callback = lambda _hotkey, new_bind: self.main_menu_renderer.handle_back_key()
-        self.binding_manager.start_interactive_rebind_for_action(hotkey, callback=callback, timeout=timeout)
+        self.hotkey_manager.start_interactive_rebind_for_action(hotkey, callback=callback, timeout=timeout)
 
 
     def _render_playlist_details(self):

@@ -5,7 +5,7 @@ from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
 from hotkey_binding_menu import HotkeyBindingMenu
-from input_management.binding_manager import HotkeyBindingsManager, HotkeyAction
+from input_management.custom_hotkey_manager import CustomHotkeyManager, HotkeyAction
 # Import our new modular components
 from game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_SELECTION_LIST, CUSTOM_MODES
 from game_modes import ScenarioMode, RaceMode
@@ -59,7 +59,7 @@ class Dojo(BaseScript):
 
         # Hotkey management
         self.binding_menu_manager: HotkeyBindingMenu = None
-        self.binding_manager: HotkeyBindingsManager = None
+        self.hotkey_manager: CustomHotkeyManager = None
         
     def run(self):
         """Main game loop"""
@@ -115,12 +115,14 @@ class Dojo(BaseScript):
         # Set up custom playlist manager with scenario mode
         self.scenario_mode.set_playlist_registry(self.playlist_registry)
 
-        # Set up hotkey binding system
-        self.binding_manager = HotkeyBindingsManager()
-        self.binding_manager.load()  # Load all user defined bindings
+        # Set up custom hotkey binding system
+        self.hotkey_manager = CustomHotkeyManager()
+        self.hotkey_manager.load()  # Load all user defined bindings
+        self._setup_custom_hotkey_handlers()
+        self.hotkey_manager.register_bindings()
         self.binding_menu_manager = HotkeyBindingMenu(renderer=self.game_interface.renderer,
                                                       main_menu_renderer=self.menu_renderer,
-                                                      binding_manager=self.binding_manager)
+                                                      hotkey_manager=self.hotkey_manager)
         
         # Initialize menu system
         self._setup_menus()
@@ -129,10 +131,6 @@ class Dojo(BaseScript):
         
         # Set up keyboard handlers
         self._setup_keyboard_handlers()
-
-        # Set up controller handlers
-        self._setup_controller_handlers()
-        self.binding_manager.register_bindings()
 
         # Set initial pause time
         self.game_state.pause_time = constants.DEFAULT_PAUSE_TIME
@@ -209,16 +207,11 @@ class Dojo(BaseScript):
         """Toggle the timeout"""
         self.game_state.enable_timeouts = not self.game_state.enable_timeouts
 
-    def _setup_controller_handlers(self):
-        if self.binding_manager:
-            self.binding_manager.set_action_callback(action=HotkeyAction.NEXT_SCENARIO, callback=self._next_scenario)
-            self.binding_manager.set_action_callback(action=HotkeyAction.TOGGLE_FREEZE_SCENARIO, callback=self._toggle_freeze_scenario)
-            self.binding_manager.set_action_callback(action=HotkeyAction.TOGGLE_TIMEOUT, callback=self._toggle_timeout)
-
-            # TODO: Implement these
-            # self.binding_manager.set_action_callback(action=HotkeyAction.PREVIOUS_SCENARIO, callback=self._prev_scenario)
-            # self.binding_manager.set_action_callback(action=HotkeyAction.RESET_SCENARIO, callback=self._reset_scenario)
-            # self.binding_manager.set_action_callback(action=HotkeyAction.CAPTURE_REPLAY_STATE, callback=self._capture_replay_state)
+    def _setup_custom_hotkey_handlers(self):
+        if self.hotkey_manager:
+            self.hotkey_manager.set_action_callback(action=HotkeyAction.NEXT_SCENARIO, callback=self._next_scenario)
+            self.hotkey_manager.set_action_callback(action=HotkeyAction.TOGGLE_FREEZE_SCENARIO, callback=self._toggle_freeze_scenario)
+            self.hotkey_manager.set_action_callback(action=HotkeyAction.TOGGLE_TIMEOUT, callback=self._toggle_timeout)
 
     def _setup_keyboard_handlers(self):
         """Set up all keyboard hotkeys"""
@@ -776,8 +769,8 @@ class Dojo(BaseScript):
     def cleanup(self):
         """Clean up keyboard handlers"""
         keyboard.unhook_all()
-        if self.binding_manager:
-            self.binding_manager.stop()
+        if self.hotkey_manager:
+            self.hotkey_manager.stop()
 
 
 # Entry point
