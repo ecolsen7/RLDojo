@@ -223,7 +223,6 @@ class Dojo(BaseScript):
     def _setup_keyboard_handlers(self):
         """Set up all keyboard hotkeys"""
         keyboard.add_hotkey('m', self._toggle_menu)
-        keyboard.add_hotkey('n', self._next_scenario)
         keyboard.add_hotkey('left', self._handle_left)
         keyboard.add_hotkey('right', self._handle_right)
         keyboard.add_hotkey('down', self._handle_down)
@@ -232,8 +231,6 @@ class Dojo(BaseScript):
         keyboard.add_hotkey('b', self._handle_back)
         keyboard.add_hotkey('enter', self._enter_handler)
         keyboard.add_hotkey('1', self._handle_custom_trial)
-        keyboard.add_hotkey('5', self._toggle_timeout)
-        keyboard.add_hotkey('6', self._toggle_freeze_scenario)
 
         # For all other letters, submit the letter as a text input
         for letter in string.ascii_lowercase:

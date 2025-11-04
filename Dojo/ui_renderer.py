@@ -24,15 +24,15 @@ class UIRenderer:
         seconds_str = f"{seconds:02d}"
         
         # Prepare text content
-        text = "Welcome to the Dojo. Press 'm' to enter menu. \n Press 'n' to go to next scenario."
+        text = "Welcome to the Dojo. Press 'm' to enter menu."
         previous_record = "No record"
         
         if self.game_state.gym_mode == GymMode.SCENARIO:
             scores = f"Human: {self.game_state.human_score} Bot: {self.game_state.bot_score}"
             total_score = f"Total: {self.game_state.human_score + self.game_state.bot_score}"
             time_since_start = f"Time: {minutes}:{seconds_str}"
-            timeout_enabled = f"Timeouts enabled (toggle with '5'): {self.game_state.enable_timeouts}"
-            freeze_scenario_enabled = f"Scenario frozen (toggle with '6'): {self.game_state.freeze_scenario}"
+            timeout_enabled = f"Timeouts enabled: {self.game_state.enable_timeouts}"
+            freeze_scenario_enabled = f"Scenario frozen: {self.game_state.freeze_scenario}"
             offensive_mode_name = f"Offensive Mode: {self.game_state.offensive_mode.name}"
             defensive_mode_name = f"Defensive Mode: {self.game_state.defensive_mode.name}"
             player_role_name = "offense" if self.game_state.player_offense else "defense"
