@@ -775,5 +775,11 @@ class Dojo(BaseScript):
 
 # Entry point
 if __name__ == "__main__":
-    script = Dojo()
-    script.run()
+    script = None
+    try:
+        script = Dojo()
+        script.run()
+    except KeyboardInterrupt:
+        # Try to force cleanup of pygame and threads to prevent hanging on exit
+        if script:
+            script.cleanup()

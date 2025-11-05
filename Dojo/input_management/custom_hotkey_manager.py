@@ -46,6 +46,7 @@ class CustomHotkeyManager:
         self.unregister_bindings()
         self.controller_manager.stop()
         self.keyboard_manager.stop()
+        AsyncManager.get_instance().stop()
 
     def get_currently_bound_keys(self, action: HotkeyAction):
         return self.action_bindings[action]

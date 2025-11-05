@@ -72,7 +72,7 @@ class ControllerManager:
     def start(self):
         """Start the controller input thread"""
         self.running = True
-        self.thread = threading.Thread(target=self._run)
+        self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
         return self.thread
 

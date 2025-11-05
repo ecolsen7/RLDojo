@@ -117,3 +117,4 @@ class KeyboardManager:
             except:
                 pass
         self.keyboard_hooks.clear()
+        kb.unhook_all()
