@@ -1,0 +1,3 @@
+"""
+Dojo package initializer.
+"""

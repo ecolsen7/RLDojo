@@ -1,0 +1,1 @@
+from .custom_hotkey_manager import CustomHotkeyManager, HotkeyAction
