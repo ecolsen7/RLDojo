@@ -9,6 +9,8 @@ os.environ["SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"] = "1"
 
 class ControllerManager:
     """Manages game controller input using pygame"""
+
+    CONTROLLER_PREFIX = "joy_"  # To separate keyboard hotkeys from other hotkeys (e.g., joystick A vs keyboard A)
     
     # Standard SDL Game Controller button mapping
     BUTTON_NAMES = {
@@ -61,9 +63,9 @@ class ControllerManager:
     def get_button_name(self, button_index, joystick):
         """Get a human-readable name for a button."""
         if button_index in self.BUTTON_NAMES:
-            return self.BUTTON_NAMES[button_index]
+            return f"{self.CONTROLLER_PREFIX}{self.BUTTON_NAMES[button_index]}"
         else:
-            return f"Button {button_index}"
+            return f"{self.CONTROLLER_PREFIX}{button_index}"
 
     def get_hat_name(self, hat_position):
         """Get a human-readable name for a hat/d-pad position."""

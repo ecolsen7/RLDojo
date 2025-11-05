@@ -72,7 +72,7 @@ class CustomHotkeyManager:
 
         # Default controller bindings
         # self._add_binding(HotkeyAction.RESET_SCENARIO, "A")
-        self._add_binding(HotkeyAction.RESET_SHOT, "Back")
+        self._add_binding(HotkeyAction.RESET_SHOT, f"{ControllerManager.CONTROLLER_PREFIX}Back")
         # self._add_binding(HotkeyAction.PREVIOUS_SCENARIO, "LB")
         # self._add_binding(HotkeyAction.TOGGLE_TIMEOUT, "X")
         # self._add_binding(HotkeyAction.TOGGLE_FREEZE_SCENARIO, "Y")
@@ -92,22 +92,22 @@ class CustomHotkeyManager:
                 continue
 
             for binding in bindings:
-                # Try keyboard first, then controller
-                if binding.startswith(KeyboardManager.KEYBOARD_PREFIX):
-                    self.keyboard_manager.register_hotkey(binding, callback)
-                else:
+                # Try controller first, then keyboard
+                if binding.startswith(ControllerManager.CONTROLLER_PREFIX):
                     self.controller_manager.register_hotkey(binding, callback)
+                else:
+                    self.keyboard_manager.register_hotkey(binding, callback)
                 self.registered_hotkeys.add(binding)
 
         print(f"Registered {len(self.registered_hotkeys)} hotkey bindings")
 
     def unregister_bindings(self) -> None:
         """Unregister all bindings from both managers"""
-        for hotkey in self.registered_hotkeys:
-            if hotkey.startswith(KeyboardManager.KEYBOARD_PREFIX):
-                self.keyboard_manager.unregister_hotkey(hotkey)
+        for binding in self.registered_hotkeys:
+            if binding.startswith(ControllerManager.CONTROLLER_PREFIX):
+                self.controller_manager.unregister_hotkey(binding)
             else:
-                self.controller_manager.unregister_hotkey(hotkey)
+                self.keyboard_manager.unregister_hotkey(binding)
 
         self.registered_hotkeys.clear()
         print("Unregistered all hotkey bindings")

@@ -6,7 +6,7 @@ import keyboard as kb
 class KeyboardManager:
     """Manages keyboard input using the keyboard library"""
     
-    KEYBOARD_PREFIX = "kb_"
+    KEYBOARD_PREFIX = ""  # To separate keyboard hotkeys from other hotkeys (e.g., joystick A vs keyboard A)
     
     def __init__(self):
         self.hotkeys = {}
