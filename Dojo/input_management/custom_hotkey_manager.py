@@ -293,6 +293,13 @@ class CustomHotkeyManager:
             action: The action to bind
             binding: The input binding (button/key name)
         """
+        # If binding already bound to some other action, remove it
+        for act, bindings in self.action_bindings.items():
+            if binding in bindings and act != action:
+                bindings.remove(binding)
+                print(f"Removed binding '{binding}' from action '{act.value}' due to rebind")
+
+        # Bind the new key
         if binding not in self.action_bindings[action]:
             self.action_bindings[action].append(binding)
             print(f"Added binding '{binding}' for action '{action.value}'")
