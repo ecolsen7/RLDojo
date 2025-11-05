@@ -209,7 +209,7 @@ class Dojo(BaseScript):
 
     def _setup_custom_hotkey_handlers(self):
         if self.hotkey_manager:
-            self.hotkey_manager.set_action_callback(action=HotkeyAction.NEXT_SCENARIO, callback=self._next_scenario)
+            self.hotkey_manager.set_action_callback(action=HotkeyAction.RESET_SHOT, callback=self._next_scenario)
             self.hotkey_manager.set_action_callback(action=HotkeyAction.TOGGLE_FREEZE_SCENARIO, callback=self._toggle_freeze_scenario)
             self.hotkey_manager.set_action_callback(action=HotkeyAction.TOGGLE_TIMEOUT, callback=self._toggle_timeout)
 

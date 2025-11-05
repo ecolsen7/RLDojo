@@ -10,9 +10,9 @@ from .keyboard_manager import KeyboardManager
 
 
 class HotkeyAction(Enum):
-    NEXT_SCENARIO = "next_scenario"
-    TOGGLE_TIMEOUT = "toggle_timeout"
-    TOGGLE_FREEZE_SCENARIO = "toggle_freeze_scenario"
+    RESET_SHOT = "Reset shot"
+    TOGGLE_TIMEOUT = "Toggle timeout"
+    TOGGLE_FREEZE_SCENARIO = "Toggle freeze scenario"
 
 
 class HotkeyConfig(BaseModel):
@@ -72,7 +72,7 @@ class CustomHotkeyManager:
 
         # Default controller bindings
         # self._add_binding(HotkeyAction.RESET_SCENARIO, "A")
-        self._add_binding(HotkeyAction.NEXT_SCENARIO, "Back")
+        self._add_binding(HotkeyAction.RESET_SHOT, "Back")
         # self._add_binding(HotkeyAction.PREVIOUS_SCENARIO, "LB")
         # self._add_binding(HotkeyAction.TOGGLE_TIMEOUT, "X")
         # self._add_binding(HotkeyAction.TOGGLE_FREEZE_SCENARIO, "Y")
