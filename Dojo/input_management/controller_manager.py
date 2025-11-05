@@ -11,7 +11,7 @@ class ControllerManager:
     """Manages game controller input using pygame"""
 
     CONTROLLER_PREFIX = "joy_"  # To separate keyboard hotkeys from other hotkeys (e.g., joystick A vs keyboard A)
-    
+
     # Standard SDL Game Controller button mapping
     BUTTON_NAMES = {
         0: "A",  # Cross on PS, B on Nintendo
@@ -69,7 +69,11 @@ class ControllerManager:
 
     def get_hat_name(self, hat_position):
         """Get a human-readable name for a hat/d-pad position."""
-        return self.HAT_NAMES.get(hat_position, None)
+        hat_name = self.HAT_NAMES.get(hat_position, None)
+        if hat_name:
+            return f"{self.CONTROLLER_PREFIX}{hat_name}"
+        else:
+            return None
 
     def start(self):
         """Start the controller input thread"""
@@ -124,7 +128,7 @@ class ControllerManager:
                 result = self.rebind_result
                 self.rebind_result = None
 
-            print("Returning controller result")
+            print(f"Returning controller result {result if button_detected else None}")
             return result if button_detected else None
         finally:
             # Ensure rebind mode is disabled
@@ -156,7 +160,7 @@ class ControllerManager:
         """Handle button press events."""
         joystick = self.joysticks[event.instance_id]
         button_name = self.get_button_name(event.button, joystick)
-        print(f"Button pressed: {button_name} (index {event.button})")
+        # print(f"Button pressed: {button_name} (index {event.button})")
 
         # Check if we're in rebind mode
         with self.rebind_lock:
@@ -166,7 +170,13 @@ class ControllerManager:
                 return
 
         # Normal hotkey handling
-        print(f"Checking if '{button_name}' is in hotkeys: {button_name in self.hotkeys}")
+        self._handle_hotkey_callbacks(button_name)
+
+    def _handle_hotkey_callbacks(self, button_name):
+        if button_name is None:
+            # D-pad returns None when it is released
+            return
+        # print(f"Checking if '{button_name}' is in hotkeys: {button_name in self.hotkeys}")
         if button_name in self.hotkeys:
             print(f"Calling callback for '{button_name}'")
             try:
@@ -176,19 +186,20 @@ class ControllerManager:
                 import traceback
                 traceback.print_exc()
         else:
-            print(f"Available hotkeys: {list(self.hotkeys.keys())}")
+            # print(f"Available hotkeys: {list(self.hotkeys.keys())}")
+            pass
 
     def _handle_button_up(self, event):
         """Handle button release events."""
         joystick = self.joysticks[event.instance_id]
         button_name = self.get_button_name(event.button, joystick)
-        print(f"Button released: {button_name} (index {event.button})")
+        # print(f"Button released: {button_name} (index {event.button})")
 
     def _handle_hat_motion(self, event):
         """Handle D-pad motion events."""
         hat_name = self.get_hat_name(event.value)
         if hat_name:
-            print(f"D-pad: {hat_name}")
+            # print(f"D-pad: {hat_name}")
 
             # Check if we're in rebind mode
             with self.rebind_lock:
@@ -196,6 +207,9 @@ class ControllerManager:
                     self.rebind_result = hat_name
                     self.rebind_event.set()
                     return
+
+            # Normal hotkey handling
+            self._handle_hotkey_callbacks(hat_name)
 
     def _handle_device_added(self, event):
         """Handle joystick connection events."""
