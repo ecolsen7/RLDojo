@@ -116,7 +116,7 @@ class Dojo(BaseScript):
         self.playlist_registry = PlaylistRegistry(self.game_interface.renderer)
         self.playlist_registry.set_custom_playlist_manager(self.custom_playlist_manager)
 
-        # Initialize custom playlist manager for storing replay states
+        # Initialize custom replay playlist manager for storing replay states
         self.custom_replay_manager = CustomReplayManager(renderer=self.game_interface.renderer, main_menu_renderer=self.menu_renderer, rlbot_get_game_tick_packet_function=self.get_game_tick_packet)
 
         # Initialize game modes

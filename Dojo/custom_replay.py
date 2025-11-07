@@ -24,6 +24,7 @@ class CustomReplayManager:
         self.main_menu_renderer = main_menu_renderer
         # Current playlist being created/edited
         self.current_playlist_name = ""
+        self.custom_playlists = self.get_custom_playlists()
         self.current_scenarios = []
         self.current_custom_scenarios = []
         self.current_boost_range = [12, 100]  # Default boost range
@@ -35,7 +36,7 @@ class CustomReplayManager:
         """Create the main playlist creation menu"""
         menu = MenuRenderer(self.renderer, columns=1, render_function=self._render_playlist_details)
         menu.add_element(UIElement("Create New Custom Playlist", header=True))
-        menu.add_element(UIElement("Load Existing Custom Playlist", submenu=self._create_scenario_selection_menu()))
+        menu.add_element(UIElement("Load Existing Custom Playlist", submenu=self._create_playlist_menu()))
         menu.add_element(UIElement("Set Playlist Name", submenu=self._create_name_input_menu(),
                                    display_value_function=self.get_current_playlist_name))
         menu.add_element(UIElement("Add PresetScenarios", submenu=self._create_scenario_selection_menu()))
@@ -80,6 +81,32 @@ class CustomReplayManager:
         """Create menu for setting playlist name"""
         menu = MenuRenderer(self.renderer, columns=1, text_input=True, text_input_callback=self._set_playlist_name)
         return menu
+
+    def _create_playlist_menu(self):
+        """Create playlist selection submenu"""
+        # Refresh custom playlists to include any newly created ones
+        self.custom_playlists = self.get_custom_playlists()
+
+        playlist_menu = MenuRenderer(self.renderer, columns=1)
+        playlist_menu.add_element(UIElement("Select Playlist", header=True))
+
+        # Add each playlist as a menu option
+        for playlist_name, playlist in self.custom_playlists.items():
+            playlist_menu.add_element(UIElement(
+                f"{playlist.name}",
+                function=self._set_playlist,
+                function_args=(playlist_name, playlist)
+            ))
+
+        return playlist_menu
+
+    def _set_playlist(self, playlist_name: str, playlist: Playlist):
+        """Set the active playlist"""
+        print(f"Setting playlist: {playlist_name}")
+        self.current_playlist_name = playlist_name
+        self.current_scenarios = playlist.scenarios
+        self.custom_scenarios = playlist.custom_scenarios
+        self.main_menu_renderer.handle_back_key()
 
     def _create_scenario_selection_menu(self):
         """Create menu for selecting scenarios to add"""
@@ -286,7 +313,7 @@ class CustomReplayManager:
         self.current_custom_scenarios.append(CustomScenario.load(scenario_name))
         print(f"Added custom scenario: {scenario_name}")
 
-    def get_custom_playlists(self):
+    def get_custom_playlists(self) -> Dict[str, Playlist]:
         """Get all custom playlists"""
         # Load all custom playlists from disk
         custom_playlists = {}
