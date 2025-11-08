@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import keyboard
 import string
@@ -9,6 +11,7 @@ from input_management.custom_hotkey_manager import CustomHotkeyManager, HotkeyAc
 # Import our new modular components
 from game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_SELECTION_LIST, CUSTOM_MODES
 from game_modes import ScenarioMode, RaceMode
+from game_modes.playlist_edit_mode import PlaylistEditMode, ReplayUIRenderer
 from ui_renderer import UIRenderer
 from menu import MenuRenderer, UIElement
 from scenario import Scenario, OffensiveMode, DefensiveMode
@@ -56,7 +59,7 @@ class Dojo(BaseScript):
         self.playlist_registry = None  # Will be initialized after game interface is available
 
         # Custom replay manager
-        self.custom_replay_manager = None
+        self.custom_replay_manager: Optional[CustomReplayManager] = None
 
         # Internal state
         self.rlbot_game_state = None
@@ -148,8 +151,11 @@ class Dojo(BaseScript):
         # Set initial pause time
         self.game_state.pause_time = constants.DEFAULT_PAUSE_TIME
 
-    def _reset_current_mode(self):
-        self.current_mode = None
+    def _switch_to_replay_mode(self):
+        # TODO: Handle switch to replay mode and back
+        self.ui_renderer = ReplayUIRenderer(self.game_interface.renderer, self.game_state)
+        self.current_mode = PlaylistEditMode(self.game_state, self.game_interface, self.ui_renderer)
+        self.custom_replay_manager.replay_game_mode = self.current_mode
 
     def _setup_menus(self):
         """Set up all menu systems"""
@@ -197,7 +203,7 @@ class Dojo(BaseScript):
 
         if self.custom_replay_manager:
             custom_replay_playlist_menu = self.custom_replay_manager.create_playlist_creation_menu()
-            self.menu_renderer.add_element(UIElement('Create Custom Playlist From Replay', submenu=custom_replay_playlist_menu, function=self._reset_current_mode))
+            self.menu_renderer.add_element(UIElement('Create Custom Playlist From Replay', submenu=custom_replay_playlist_menu, function=self._switch_to_replay_mode))
 
         # Custom scenario creation menu
         self.custom_scenario_creation_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
