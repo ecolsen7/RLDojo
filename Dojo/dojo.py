@@ -238,6 +238,9 @@ class Dojo(BaseScript):
             self.hotkey_manager.set_action_callback(action=HotkeyAction.RESET_SHOT, callback=self._next_scenario)
             self.hotkey_manager.set_action_callback(action=HotkeyAction.TOGGLE_FREEZE_SCENARIO, callback=self._toggle_freeze_scenario)
             self.hotkey_manager.set_action_callback(action=HotkeyAction.TOGGLE_TIMEOUT, callback=self._toggle_timeout)
+            if self.custom_replay_manager:
+                self.hotkey_manager.set_action_callback(action=HotkeyAction.SAVE_STATE_TO_PLAYLIST,
+                                                        callback=self.custom_replay_manager.add_current_state_to_playlist)
 
     def _setup_keyboard_handlers(self):
         """Set up all keyboard hotkeys"""

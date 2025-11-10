@@ -43,7 +43,7 @@ class CustomReplayManager:
                                    display_value_function=self.get_current_playlist_name))
         menu.add_element(UIElement("Add PresetScenarios", submenu=self._create_scenario_selection_menu()))
         menu.add_element(UIElement("Add Custom Scenario", submenu=self._create_custom_scenario_selection_menu()))
-        menu.add_element(UIElement("Add Current State", function=self._add_current_state))
+        menu.add_element(UIElement("Add Current State", function=self.add_current_state_to_playlist))
         menu.add_element(UIElement("Set Boost Range", submenu=self._create_boost_range_menu(),
                                    display_value_function=self.get_current_playlist_boost_range))
         menu.add_element(UIElement("Set Timeout", submenu=self._create_timeout_menu(),
@@ -261,7 +261,7 @@ class CustomReplayManager:
             print("Please select offensive mode, defensive mode, and player role first")
         self._refresh_ui()
 
-    def _add_current_state(self):
+    def add_current_state_to_playlist(self):
         print("Adding current game state")
         packet = self.rlbot_get_game_tick_packet()
         car_states = {}
