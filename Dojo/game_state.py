@@ -29,6 +29,7 @@ CUSTOM_SELECTION_LIST = [
 class GymMode(Enum):
     SCENARIO = 1
     RACE = 2
+    EDIT_PLAYLIST = 3
 
 
 class ScenarioPhase(Enum):
