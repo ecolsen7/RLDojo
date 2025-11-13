@@ -9,7 +9,8 @@ from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics,
 from input_management.hotkey_binding_menu import HotkeyBindingMenu
 from input_management.custom_hotkey_manager import CustomHotkeyManager, HotkeyAction
 # Import our new modular components
-from game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_SELECTION_LIST, CUSTOM_MODES
+from game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_SELECTION_LIST, CUSTOM_MODES, \
+    EditPlaylistPhase
 from game_modes import ScenarioMode, RaceMode, BaseGameMode
 from game_modes.playlist_edit_mode import PlaylistEditMode, ReplayUIRenderer
 from ui_renderer import UIRenderer
@@ -480,7 +481,7 @@ class Dojo(BaseScript):
                 # self.ui_renderer.render_custom_sandbox_ui(rlbot_game_state)
             
             # Render menu if in menu mode
-            if self.game_state.game_phase in [ScenarioPhase.MENU, RacePhase.MENU, 
+            if self.game_state.game_phase in [ScenarioPhase.MENU, RacePhase.MENU, EditPlaylistPhase.MENU,
                                               ScenarioPhase.CUSTOM_OFFENSE, ScenarioPhase.CUSTOM_BALL, ScenarioPhase.CUSTOM_DEFENSE]:
                 self.menu_renderer.render_menu()
             elif self.game_state.game_phase == ScenarioPhase.CUSTOM_NAMING:
@@ -568,6 +569,13 @@ class Dojo(BaseScript):
                 self.game_state.game_phase = ScenarioPhase.EXITING_MENU
             else:
                 self.game_state.game_phase = ScenarioPhase.MENU
+        elif self.game_state.gym_mode == GymMode.EDIT_PLAYLIST:
+            if self.game_state.game_phase == EditPlaylistPhase.MENU:
+                self.game_state.game_phase = EditPlaylistPhase.EXITING_MENU
+            else:
+                self.game_state.game_phase = EditPlaylistPhase.MENU
+        else:
+            print(f"Unknown gym mode: {self.game_state.gym_mode} - do not know how to toggle menu")
     
     # Custom mode handlers
     def _custom_down_handler(self):

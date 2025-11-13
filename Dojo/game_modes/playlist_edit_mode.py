@@ -6,22 +6,13 @@ from rlbot.utils.game_state_util import CarState, GameState, BallState
 
 from custom_scenario import CustomScenario
 from game_modes import BaseGameMode
+from game_state import EditPlaylistPhase
 
 if TYPE_CHECKING:
     from game_state import DojoGameState
     from playlist import Playlist
     from rlbot.utils.structures.game_interface import GameInterface
     from rlbot.utils.structures.game_data_struct import GameTickPacket
-
-class EditPhase(Enum):
-    # INIT = -1
-    # SETUP = 0
-    # ACTIVE = 1
-    # MENU = 2
-    # EXITING_MENU = 3
-    # FINISHED = 4
-    IN_REPLAY = 5  # DRAFT: Shows playlist details and hotkeys in UI
-    EDIT_MODE = 6  # DRAFT: Use hotkeys to switch between scenarios. Edit or delete scenarios.
 
 class PlaylistEditMode(BaseGameMode):
     """"""
@@ -38,6 +29,18 @@ class PlaylistEditMode(BaseGameMode):
         """Update the game mode with the current packet"""
         self.current_packet = packet
 
+        phase_handlers = {
+            EditPlaylistPhase.INIT: lambda _: self.initialize(),
+            # EditPlaylistPhase.SETUP: self._handle_setup_phase,
+            # EditPlaylistPhase.MENU: self._handle_menu_phase,
+            EditPlaylistPhase.EXITING_MENU: self._handle_exit_menu_phase,
+            # EditPlaylistPhase.ACTIVE: self._handle_active_phase,
+        }
+
+        handler = phase_handlers.get(self.game_state.game_phase)
+        if handler:
+            handler(packet)
+
     def initialize(self) -> None:
         """Initialize the game mode"""
         pass
@@ -45,6 +48,10 @@ class PlaylistEditMode(BaseGameMode):
     def cleanup(self) -> None:
         """Clean up resources when switching away from this mode"""
         pass
+
+    def _handle_exit_menu_phase(self, packet):
+        """Handle exiting the menu"""
+        self.game_state.game_phase = EditPlaylistPhase.ACTIVE
     
     def get_current_game_state(self) -> GameState:
         packet = self.current_packet
