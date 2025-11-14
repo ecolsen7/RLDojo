@@ -44,6 +44,7 @@ class ControllerManager:
     def __init__(self):
         self.thread = None
         self.running = False
+        self.initialized = False
         self.hotkeys = {}
         self.keys_pressed = []
         self.dpad_pressed = []
@@ -59,6 +60,9 @@ class ControllerManager:
         self.screen = None
         self.clock = None
         self.text_print = None
+
+    def is_initialized(self):
+        return self.initialized
 
     def get_button_name(self, button_index, joystick):
         """Get a human-readable name for a button."""
@@ -245,7 +249,20 @@ class ControllerManager:
 
     def _run(self):
         """Main loop for controller input handling."""
-        self._initialize_pygame()
+        # In rare cases, the pygame init takes a very long time and it will block all other threads for the duration.
+        # Sleeping allows us to show at least some messages to the user so they know what is happening.
+        #
+        # This is somehow related to how windows / SDL handles USB devices. It also sounds very similar to the
+        # issues RL players were having in 2025 autumn with controller becoming increasingly less responsive when
+        # playing RL for a couple of matches.
+        #
+        # Potential fixes:
+        #  A) Wait for windows/sdl/pygame/driver update that finally fixes the root cause of this issue.
+        #  B) Use multiprocessing instead of multithreading. Allows dojo to run while pygame is initializing.
+        #
+        time.sleep(0.2)  # Sleep for a bit to allow game ui to initialize before pygame.
+        self._initialize_pygame()  # This can randomly hang for up to a minute. Something about SDL + usb-devices...
+        self.initialized = True
 
         while self.running:
             self._process_events()

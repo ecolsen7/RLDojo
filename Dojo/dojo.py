@@ -74,6 +74,11 @@ class Dojo(BaseScript):
             # Initialize components on first tick
             if self.game_state.ticks == 1:
                 self._initialize_components()
+
+            if not self.game_state.dojo_components_initialized:
+                # HotkeyManager is initialized asynchronously to (preferably) avoid blocking the main thread.
+                self.game_state.dojo_components_initialized = (self.hotkey_manager is None
+                                                               or self.hotkey_manager.is_initialized())
             
             # Update current game mode
             if self.current_mode:

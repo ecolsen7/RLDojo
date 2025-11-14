@@ -75,6 +75,7 @@ class DojoGameState:
     # Game mode and phase
     gym_mode: GymMode = GymMode.SCENARIO
     game_phase: ScenarioPhase = ScenarioPhase.SETUP
+    dojo_components_initialized: bool = False
     
     # Scenario settings
     offensive_mode: OffensiveMode = OffensiveMode.POSSESSION

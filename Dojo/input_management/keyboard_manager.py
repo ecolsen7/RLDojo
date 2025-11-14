@@ -11,6 +11,7 @@ class KeyboardManager:
     def __init__(self):
         self.hotkeys = {}
         self.keyboard_hooks = {}  # Map from hotkey name to hook object
+        self.initialized = True
         
         # Rebinding state
         self.rebind_mode = False
@@ -18,6 +19,9 @@ class KeyboardManager:
         self.rebind_lock = threading.Lock()
         self.rebind_event = threading.Event()
         self.rebind_hook = None
+
+    def is_initialized(self):
+        return self.initialized
     
     def get_keyboard_name(self, key_code):
         """Get a human-readable name for a keyboard key with prefix."""

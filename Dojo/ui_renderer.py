@@ -19,7 +19,23 @@ class UIRenderer:
         """Render the main UI elements (score, time, etc.)"""
         if self.game_state.game_phase in [ScenarioPhase.MENU, *CUSTOM_MODES]:
             return
-        
+
+        # Draw initial UI while components are initializing.
+        # Especially HotkeyManager / Pygame can randomly take longer to initialize while blocking the main thread.
+        if not self.game_state.dojo_components_initialized:
+            self.renderer.begin_rendering()
+            header_text = "Welcome to the Dojo."
+            self.renderer.draw_string_2d(20, 50, 1, 1, header_text, self.renderer.yellow())
+            warning_text = ("Waiting for components to initialize... "
+                            "\nShould take a few seconds. "
+                            "\nIf not, try waiting for up to a minute or restarting your PC.")
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 10,
+                1, 1, warning_text, self.renderer.yellow()
+            )
+            self.renderer.end_rendering()
+            return
+
         minutes, seconds = self.game_state.get_time_since_start()
         seconds_str = f"{seconds:02d}"
         

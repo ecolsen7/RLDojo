@@ -41,6 +41,9 @@ class CustomHotkeyManager:
         # Track registered hotkeys to avoid duplicates
         self.registered_hotkeys = set()
 
+    def is_initialized(self):
+        return self.controller_manager.is_initialized() and self.keyboard_manager.is_initialized()
+
     def stop(self) -> None:
         """Stop the hotkey manager"""
         self.unregister_bindings()
