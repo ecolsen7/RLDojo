@@ -52,6 +52,13 @@ class CustomReplayManager:
         return menu
 
     ### Element value retrieval functions
+    def get_number_of_vehicles_in_custom_scenarios(self):
+        # Find the number of vehicles in each scenario
+        vehicles_per_scenario = []
+        for scenario in self.playlist.custom_scenarios:
+            vehicles_per_scenario.append(len(scenario.game_state.cars))
+        return vehicles_per_scenario
+
     def get_current_playlist(self):
         return self.playlist
 
