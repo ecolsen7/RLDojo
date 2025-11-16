@@ -93,6 +93,21 @@ class ReplayUIRenderer:
         text = "Welcome to the Replay mode. Press 'm' to enter menu."
         self.renderer.draw_string_2d(20, 50, 1, 1, text, self.renderer.yellow())
 
+        def game_mode_from_number_of_vehicles(number_of_vehicles):
+            # Converts number of vehicles to human readable name
+            if number_of_vehicles <= 1:
+                return "solo"
+            elif number_of_vehicles <= 2:
+                return "1v1"
+            elif number_of_vehicles <= 4:
+                return "2v2"
+            elif number_of_vehicles <= 6:
+                return "3v3"
+            elif number_of_vehicles <= 8:
+                return "4v4"
+            else:
+                return "Custom"
+
 
         # Other text elements
         text_elements = ["In this mode you can add scenarios to a playlist."]
@@ -103,6 +118,9 @@ class ReplayUIRenderer:
             text_elements.append(f"\t Name: {playlist.name}")
             text_elements.append(f"\t Scenarios: {len(playlist.scenarios)}")
             text_elements.append(f"\t Custom scenarios: {len(playlist.custom_scenarios)}")
+            number_of_players = self.custom_replay_manager.get_number_of_vehicles_in_custom_scenarios()
+            rl_game_mode_names = [game_mode_from_number_of_vehicles(x) for x in number_of_players]
+            text_elements.append(f"\t Custom scenario game modes: {rl_game_mode_names}")
             boost_range = playlist.settings.boost_range
             text_elements.append(f"\t Boost Range: {boost_range[0]}-{boost_range[1]}")
             text_elements.append(f"\t Timeout: {playlist.settings.timeout}s")
