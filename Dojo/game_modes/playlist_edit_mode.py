@@ -10,6 +10,7 @@ from game_state import EditPlaylistPhase
 
 if TYPE_CHECKING:
     from game_state import DojoGameState
+    from custom_replay import CustomReplayManager
     from playlist import Playlist
     from rlbot.utils.structures.game_interface import GameInterface
     from rlbot.utils.structures.game_data_struct import GameTickPacket
@@ -17,11 +18,10 @@ if TYPE_CHECKING:
 class PlaylistEditMode(BaseGameMode):
     """"""
     
-    def __init__(self, game_state: 'DojoGameState', game_interface: 'GameInterface', game_ui: 'ReplayUIRenderer'):
+    def __init__(self, game_state: 'DojoGameState', game_interface: 'GameInterface'):
         super().__init__(game_state, game_interface)
         self.game_state = game_state
         self.game_interface = game_interface
-        self.game_ui = game_ui
         self.current_packet: Optional['GameTickPacket'] = None
         self.current_playlist: Optional['Playlist'] = None
 
@@ -64,13 +64,6 @@ class PlaylistEditMode(BaseGameMode):
         rlbot_game_state = GameState(ball=ball_state, cars=car_states)
         return rlbot_game_state
 
-    def set_current_playlist(self, playlist: 'Playlist'):
-        print("[PlaylistEditMode] Setting new playlist")
-        if self.game_ui:
-            self.game_ui.playlist = playlist
-        else:
-            print("[PlaylistEditMode] Error: No UI renderer set")
-
 
 from typing import Optional
 from game_state import DojoGameState, GymMode, ScenarioPhase, CUSTOM_MODES
@@ -85,10 +78,10 @@ import utils
 class ReplayUIRenderer:
     """Handles all UI rendering for the Dojo application"""
 
-    def __init__(self, renderer, game_state: DojoGameState):
+    def __init__(self, renderer, game_state: DojoGameState, custom_replay_manager: 'CustomReplayManager'):
         self.renderer = renderer
         self.game_state = game_state
-        self.playlist = None
+        self.custom_replay_manager = custom_replay_manager
 
     def render_main_ui(self):
         """Render the main UI elements"""
@@ -104,12 +97,12 @@ class ReplayUIRenderer:
         # Other text elements
         text_elements = ["In this mode you can add scenarios to a playlist."]
 
-        if self.playlist:
-            playlist = self.playlist
+        playlist = self.custom_replay_manager.get_current_playlist()
+        if playlist:
             text_elements.append("Current playlist:")
             text_elements.append(f"\t Name: {playlist.name}")
             text_elements.append(f"\t Scenarios: {len(playlist.scenarios)}")
-            text_elements.append(f"\t Scenarios: {len(playlist.custom_scenarios)}")
+            text_elements.append(f"\t Custom scenarios: {len(playlist.custom_scenarios)}")
             boost_range = playlist.settings.boost_range
             text_elements.append(f"\t Boost Range: {boost_range[0]}-{boost_range[1]}")
             text_elements.append(f"\t Timeout: {playlist.settings.timeout}s")
