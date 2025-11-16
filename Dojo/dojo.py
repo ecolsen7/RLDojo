@@ -125,16 +125,18 @@ class Dojo(BaseScript):
         # Initialize game modes
         self.scenario_mode = ScenarioMode(self.game_state, self.game_interface)
         self.race_mode = RaceMode(self.game_state, self.game_interface)
-        self.playlist_edit_mode = PlaylistEditMode(self.game_state, self.game_interface, game_ui=None)
-        self.playlist_edit_ui_renderer = ReplayUIRenderer(self.game_interface.renderer, self.game_state)
+        self.playlist_edit_mode = PlaylistEditMode(self.game_state, self.game_interface)
         self.change_game_mode(GymMode.SCENARIO)
         
         # Set up custom playlist manager with scenario mode
         self.scenario_mode.set_playlist_registry(self.playlist_registry)
 
         # Initialize custom replay playlist manager for storing replay states
-        self.custom_replay_manager = CustomReplayManager(renderer=self.game_interface.renderer, main_menu_renderer=self.menu_renderer, rlbot_get_game_tick_packet_function=self.get_game_tick_packet)
-        self.custom_replay_manager.replay_game_mode = self.playlist_edit_mode
+        self.custom_replay_manager = CustomReplayManager(renderer=self.game_interface.renderer,
+                                                         main_menu_renderer=self.menu_renderer,
+                                                         game_mode=self.playlist_edit_mode)
+        self.playlist_edit_ui_renderer = ReplayUIRenderer(self.game_interface.renderer, self.game_state,
+                                                          self.custom_replay_manager)
 
         # Set up custom hotkey binding system
         self.hotkey_manager = CustomHotkeyManager()
@@ -175,7 +177,6 @@ class Dojo(BaseScript):
         elif new_mode == GymMode.EDIT_PLAYLIST:
             self.current_mode = self.playlist_edit_mode
             self.ui_renderer = self.playlist_edit_ui_renderer
-            self.playlist_edit_mode.game_ui = self.playlist_edit_ui_renderer
         else:
             print("Unknown game mode")
             return
