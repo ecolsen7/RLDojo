@@ -72,6 +72,9 @@ class Dojo(BaseScript):
         self.binding_menu_manager: Optional[HotkeyBindingMenu] = None
         self.hotkey_manager: Optional[CustomHotkeyManager] = None
 
+        # Initialization control
+        self.match_settings_checked = False
+
     def run(self):
         """Main game loop"""
         while True:
@@ -104,10 +107,11 @@ class Dojo(BaseScript):
         # self.game_state.paused = packet.game_info.paused
         self.game_state.paused = False
         
-        # Check for disable goal reset mutator on first tick
-        if self.game_state.ticks == 1:
+        # Check for disable goal reset mutator on first possible tick
+        if not self.match_settings_checked and self.get_match_settings():
             match_settings = self.get_match_settings()
             mutators = match_settings.MutatorSettings()
+            self.match_settings_checked = True
             if mutators.RespawnTimeOption() == 3:
                 self.game_state.disable_goal_reset = True
     
