@@ -271,8 +271,10 @@ class CustomReplayManager:
 
         # Save current playlist to a file
         playlist = self.playlist
-        with open(os.path.join(_get_custom_playlists_path(), f"{playlist.name}.json"), "w") as f:
+        file_path = os.path.join(_get_custom_playlists_path(), f"{playlist.name}.json")
+        with open(file_path, "w") as f:
             f.write(playlist.model_dump_json())
+        print(f"Saved playlist: {playlist.name} to {file_path}")
 
     def _cancel_playlist_creation(self):
         """Cancel playlist creation and reset"""

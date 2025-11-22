@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from pprint import pprint
+from typing import TYPE_CHECKING, Optional, Tuple
+from collections import namedtuple
 
-from rlbot.utils.game_state_util import CarState, GameState, BallState
+from rlbot.utils.game_state_util import CarState, GameState, BallState, Physics
 
 from custom_scenario import CustomScenario
 from game_modes import BaseGameMode
@@ -17,6 +19,8 @@ if TYPE_CHECKING:
 
 class PlaylistEditMode(BaseGameMode):
     """"""
+
+    PlayerIndexMapping = namedtuple('PlayerIndexMapping', ['custom_scenario_index', 'rlbot_packet_index'])
     
     def __init__(self, game_state: 'DojoGameState', game_interface: 'GameInterface'):
         super().__init__(game_state, game_interface)
@@ -24,10 +28,13 @@ class PlaylistEditMode(BaseGameMode):
         self.game_interface = game_interface
         self.current_packet: Optional['GameTickPacket'] = None
         self.current_playlist: Optional['Playlist'] = None
+        self.currently_spectated_player_name: Optional[str] = None
 
     def update(self, packet: 'GameTickPacket') -> None:
         """Update the game mode with the current packet"""
         self.current_packet = packet
+        if self.currently_spectated_player_name is None:
+            self.guess_player_name()
 
         phase_handlers = {
             EditPlaylistPhase.INIT: lambda _: self.initialize(),
@@ -55,14 +62,153 @@ class PlaylistEditMode(BaseGameMode):
     
     def get_current_game_state(self) -> GameState:
         packet = self.current_packet
+        indices, should_mirror_physics = self.map_player_indices()
         car_states = {}
-        # Player indices should match already? The first index is the human player.
-        for i, player_info in enumerate(packet.game_cars):
-            car_states[i] = CarState(physics=player_info.physics, boost_amount=player_info.boost,
-                                     jumped=player_info.jumped, double_jumped=player_info.double_jumped)
-        ball_state = BallState(physics=packet.game_ball.physics)
+        # Store vehicles in order. The first element is always the player.
+        # Mirror physics if necessary, so players are facing the correct goal.
+        print(f"Mirroring physics: {should_mirror_physics}")
+        for player_mapping in indices:
+            custom_scenario_index = player_mapping.custom_scenario_index
+            rlbot_packet_index = player_mapping.rlbot_packet_index
+            player = packet.game_cars[rlbot_packet_index]
+            car_physics = self.mirror_physics(player.physics) if should_mirror_physics else player.physics
+            car_state = CarState(physics=car_physics, boost_amount=player.boost,
+                                     jumped=player.jumped, double_jumped=player.double_jumped)
+            car_states[custom_scenario_index] = car_state
+        ball_physics = self.mirror_physics(packet.game_ball.physics) if should_mirror_physics else packet.game_ball.physics
+        ball_state = BallState(physics=ball_physics)
         rlbot_game_state = GameState(ball=ball_state, cars=car_states)
         return rlbot_game_state
+
+    def mirror_physics(self, physics: Physics):
+        '''
+        Mirror the scenario across the Y axis, turning defensive scenarios into offensive scenarios
+        Involves flipping the Y aspects of the car + ball locations, velocity, and yaw
+        '''
+        if physics.location:
+            physics.location.y = -physics.location.y
+        if physics.rotation:
+            physics.rotation.yaw = -physics.rotation.yaw
+        if physics.velocity:
+            physics.velocity.y = -physics.velocity.y
+        return physics
+
+    def map_player_indices(self) -> Tuple[list[PlayerIndexMapping], bool]:
+        """
+        Players can be in any order in the game (i.e., in the RLBot packet).
+
+        However, RLBot expects them to be in a specific order.
+        The first car is always the ego player in RLBot / Dojo.
+        Then comes anyone in their team and finally the other team.
+
+        Here we create a mapping between these two indexing schemes.
+
+        Example player order in a replay:
+        [{'index': 0, 'name': 'orange_player_1', 'team': 1},
+         {'index': 1, 'name': 'blue_player_1', 'team': 0},
+         {'index': 2, 'name': 'blue_player_2', 'team': 0},
+         {'index': 3, 'name': 'orange_player_2', 'team': 1},]
+        """
+        # Find ego car index and map teams
+        ego_player_index = None
+        ego_player_team = None
+        ego_player_name = self.currently_spectated_player_name
+        blue_team = {}  # Team 0
+        orange_team = {}  # Team 1
+        for i, player_info in enumerate(self.current_packet.game_cars):
+            if player_info.hitbox.length == 0:
+                # Assume that this player does not exist, as it has no hitbox.
+                continue
+            # Check team
+            if player_info.team == 0:
+                blue_team[i] = i
+            else:
+                orange_team[i] = i
+            # Is this the ego player?
+            if player_info.name == ego_player_name:
+                ego_player_index = i
+                ego_player_team = player_info.team
+
+        if ego_player_index is None:
+            ego_player_index = 0
+            ego_player_team = 0
+            print(f"Could not find ego player {ego_player_name} in current game state. "
+                  f"Defaulting to player index 0 and team 0.")
+        else:
+            print(f"Ego player {ego_player_name} is player index {ego_player_index} on team {ego_player_team}")
+
+        # Construct mapping from scenario index to rlbot packet index
+        player_indices = []
+        current_index = 0
+        should_mirror_positions = False
+        if ego_player_team == 0:
+            # Blue team first
+            teams = [blue_team, orange_team]
+            should_mirror_positions = False
+        else:
+            # Orange team first
+            teams = [orange_team, blue_team]
+            should_mirror_positions = True
+
+        # Handle ego player first
+        if ego_player_index in teams[0]:
+            del teams[0][ego_player_index]
+            player_indices.append(self.PlayerIndexMapping(custom_scenario_index=current_index,
+                                                          rlbot_packet_index=ego_player_index))
+            # player_indices[current_index] = ego_player_index
+            current_index += 1
+
+        # Then add the rest of the players ordered by team
+        for team in teams:
+            for player_index in team:
+                print(f"Mapping {current_index} to player {player_index}")
+                # player_indices[current_index] = player_index
+                player_indices.append(self.PlayerIndexMapping(custom_scenario_index=current_index,
+                                                              rlbot_packet_index=player_index))
+                current_index += 1
+
+        pprint(player_indices)
+        return player_indices, should_mirror_positions
+
+    def guess_player_name(self):
+        # TODO: Instead of guessing the player, RLBot PlayerSpectate might tell us the correct player.
+        #       - This would allow the user to switch between players in replay.
+        packet = self.current_packet
+        if not packet:
+            return
+        name = None
+
+        for i, player_info in enumerate(packet.game_cars):
+            if player_info.hitbox.length == 0:
+                # Assume that this player does not exist, as it has no hitbox.
+                continue
+            if player_info.is_bot:
+                # We are looking for a human, not a bot.
+                continue
+            if name:
+                print("Found multiple human players")
+            name = player_info.name
+
+        self.currently_spectated_player_name = name
+        print(f"Guessing that the human player is: {self.currently_spectated_player_name}")
+
+    def get_player_metadata(self):
+        packet = self.current_packet
+        if not packet:
+            return
+        player_metadata = []
+
+        for i, player_info in enumerate(packet.game_cars):
+            if player_info.hitbox.length == 0:
+                # Assume that this player does not exist, as it has no hitbox.
+                continue
+            player_metadata.append({
+                "index": i,
+                "team": player_info.team,
+                "name": player_info.name,
+            })
+
+        pprint(player_metadata)
 
 
 from typing import Optional
