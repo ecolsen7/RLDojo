@@ -181,6 +181,7 @@ class Dojo(BaseScript):
         elif new_mode == GymMode.EDIT_PLAYLIST:
             self.current_mode = self.playlist_edit_mode
             self.ui_renderer = self.playlist_edit_ui_renderer
+            self.game_state.game_phase = EditPlaylistPhase.INIT
         else:
             print("Unknown game mode")
             return
