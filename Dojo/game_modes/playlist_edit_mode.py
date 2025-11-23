@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from collections import namedtuple
 
 from rlbot.utils.game_state_util import CarState, GameState, BallState, Physics
+from rlbot.messages.flat.PlayerSpectate import PlayerSpectate
+from rlbot.socket.socket_manager_asyncio import SocketRelayAsyncio
+from input_management.async_event_loop_manager import AsyncManager
 
 from custom_scenario import CustomScenario
 from game_modes import BaseGameMode
@@ -28,13 +31,15 @@ class PlaylistEditMode(BaseGameMode):
         self.game_interface = game_interface
         self.current_packet: Optional['GameTickPacket'] = None
         self.current_playlist: Optional['Playlist'] = None
-        self.currently_spectated_player_name: Optional[str] = None
+        self.currently_spectated_player_id: Optional[int] = None
+
+        # Socket relay for listening to player spectate events
+        self.socket_relay = None
+        self.relay_task = None
 
     def update(self, packet: 'GameTickPacket') -> None:
         """Update the game mode with the current packet"""
         self.current_packet = packet
-        if self.currently_spectated_player_name is None:
-            self.guess_player_name()
 
         phase_handlers = {
             EditPlaylistPhase.INIT: lambda _: self.initialize(),
@@ -50,11 +55,32 @@ class PlaylistEditMode(BaseGameMode):
 
     def initialize(self) -> None:
         """Initialize the game mode"""
-        pass
+        # Start listening to spectate events to figure out which player is being spectated in replay
+        print("Initializing socket relay...")
+        if self.socket_relay:
+            print("Socket relay already initialized. Skipping...")
+            return
+        self.socket_relay = SocketRelayAsyncio()
+        self.socket_relay.player_spectate_handlers.append(self._handle_spectate)
+        relay_future = self.socket_relay.connect_and_run(wants_quick_chat=False, wants_game_messages=True,
+                                                         wants_ball_predictions=False)
+        AsyncManager.get_instance().start()
+        self.relay_task = AsyncManager.get_instance().run_coroutine(relay_future)
+        self.game_state.game_phase = EditPlaylistPhase.ACTIVE
 
     def cleanup(self) -> None:
         """Clean up resources when switching away from this mode"""
-        pass
+        print("Cleaning up socket relay...")
+        if self.socket_relay:
+            self.socket_relay.disconnect()
+        if self.relay_task:
+            self.relay_task.cancel()
+        self.socket_relay = None
+        self.relay_task = None
+
+    def _handle_spectate(self, spectate: PlayerSpectate, seconds: float, frame_num: int):
+        print(f'Spectating player index {spectate.PlayerIndex()}')
+        self.currently_spectated_player_id = spectate.PlayerIndex()
 
     def _handle_exit_menu_phase(self, packet):
         """Handle exiting the menu"""
@@ -110,9 +136,9 @@ class PlaylistEditMode(BaseGameMode):
          {'index': 3, 'name': 'orange_player_2', 'team': 1},]
         """
         # Find ego car index and map teams
-        ego_player_index = None
+        ego_player_index = self.currently_spectated_player_id
         ego_player_team = None
-        ego_player_name = self.currently_spectated_player_name
+        ego_player_name = None
         blue_team = {}  # Team 0
         orange_team = {}  # Team 1
         for i, player_info in enumerate(self.current_packet.game_cars):
@@ -125,14 +151,14 @@ class PlaylistEditMode(BaseGameMode):
             else:
                 orange_team[i] = i
             # Is this the ego player?
-            if player_info.name == ego_player_name:
-                ego_player_index = i
+            if i == ego_player_index:
+                ego_player_name = player_info.name
                 ego_player_team = player_info.team
 
-        if ego_player_index is None:
+        if ego_player_name is None:
             ego_player_index = 0
             ego_player_team = 0
-            print(f"Could not find ego player {ego_player_name} in current game state. "
+            print(f"Could not find ego player {ego_player_index} in current game state. "
                   f"Defaulting to player index 0 and team 0.")
         else:
             print(f"Ego player {ego_player_name} is player index {ego_player_index} on team {ego_player_team}")
@@ -169,28 +195,6 @@ class PlaylistEditMode(BaseGameMode):
 
         pprint(player_indices)
         return player_indices, should_mirror_positions
-
-    def guess_player_name(self):
-        # TODO: Instead of guessing the player, RLBot PlayerSpectate might tell us the correct player.
-        #       - This would allow the user to switch between players in replay.
-        packet = self.current_packet
-        if not packet:
-            return
-        name = None
-
-        for i, player_info in enumerate(packet.game_cars):
-            if player_info.hitbox.length == 0:
-                # Assume that this player does not exist, as it has no hitbox.
-                continue
-            if player_info.is_bot:
-                # We are looking for a human, not a bot.
-                continue
-            if name:
-                print("Found multiple human players")
-            name = player_info.name
-
-        self.currently_spectated_player_name = name
-        print(f"Guessing that the human player is: {self.currently_spectated_player_name}")
 
     def get_player_metadata(self):
         packet = self.current_packet
