@@ -202,28 +202,32 @@ class ScenarioMode(BaseGameMode):
             
     def _set_next_game_state(self):
         """Create and set the next scenario game state"""
-        if not self.game_state.freeze_scenario and not self.custom_mode_active:
-            print(f"Setting next game state: {self.game_state.offensive_mode}, {self.game_state.defensive_mode}")
-            
-            # Get boost range from current playlist if available
-            boost_range = None
-            if self.current_playlist and self.current_playlist.settings.boost_range:
-                boost_range = self.current_playlist.settings.boost_range
-                print(f"Using playlist boost range: {boost_range}")
-            
-            scenario = Scenario(self.game_state.offensive_mode, self.game_state.defensive_mode, boost_range=boost_range)
-            if self.game_state.player_offense:
-                scenario.Mirror()
-            
-            self.game_state.scenario_history.append(scenario)
-            self.game_state.freeze_scenario_index = len(self.game_state.scenario_history) - 1
-        else:
-            if self.custom_mode_active:
-                scenario = Scenario.FromGameState(self.custom_scenario.to_rlbot_game_state())
+        if not self.custom_mode_active:
+            if not self.game_state.freeze_scenario:
+                print(f"Setting next game state: {self.game_state.offensive_mode}, {self.game_state.defensive_mode}")
+
+                # Get boost range from current playlist if available
+                boost_range = None
+                if self.current_playlist and self.current_playlist.settings.boost_range:
+                    boost_range = self.current_playlist.settings.boost_range
+                    print(f"Using playlist boost range: {boost_range}")
+
+                scenario = Scenario(self.game_state.offensive_mode, self.game_state.defensive_mode, boost_range=boost_range)
+                if self.game_state.player_offense:
+                    scenario.Mirror()
+
+                self.game_state.scenario_history.append(scenario)
+                self.game_state.freeze_scenario_index = len(self.game_state.scenario_history) - 1
             else:
                 scenario = self.game_state.scenario_history[self.game_state.freeze_scenario_index]
-        
-        self.rlbot_game_state = scenario.GetGameState()
+            self.rlbot_game_state = scenario.GetGameState()
+        else:
+            if not self.game_state.freeze_scenario:
+                self.rlbot_game_state = self.custom_scenario.to_rlbot_game_state()
+            else:
+                # Just assume that previous custom scenario state is still stored
+                pass
+
         self.set_game_state(self.rlbot_game_state)
     
     def _check_ball_in_goal(self, packet) -> bool:
