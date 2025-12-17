@@ -75,6 +75,7 @@ class DojoGameState:
     # Game mode and phase
     gym_mode: GymMode = GymMode.SCENARIO
     game_phase: ScenarioPhase = ScenarioPhase.SETUP
+    dojo_components_initialized: bool = False
     
     # Scenario settings
     offensive_mode: OffensiveMode = OffensiveMode.POSSESSION
@@ -82,7 +83,11 @@ class DojoGameState:
     player_offense: bool = True
     freeze_scenario: bool = False
     freeze_scenario_index: int = 0
+    enable_timeouts: bool = True
     scenario_history: List[Scenario] = None
+
+    # Scenario controls
+    manual_reset_requested: bool = False  # Scenario should reset on next tick (flag should be set to False after)
     
     # Custom mode selections
     custom_updown_selection: CustomUpDownSelection = CustomUpDownSelection.Y

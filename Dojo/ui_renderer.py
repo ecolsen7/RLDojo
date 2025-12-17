@@ -19,18 +19,36 @@ class UIRenderer:
         """Render the main UI elements (score, time, etc.)"""
         if self.game_state.game_phase in [ScenarioPhase.MENU, *CUSTOM_MODES]:
             return
-        
+
+        # Draw initial UI while components are initializing.
+        # Especially HotkeyManager / Pygame can randomly take longer to initialize while blocking the main thread.
+        if not self.game_state.dojo_components_initialized:
+            self.renderer.begin_rendering()
+            header_text = "Welcome to the Dojo."
+            self.renderer.draw_string_2d(20, 50, 1, 1, header_text, self.renderer.yellow())
+            warning_text = ("Waiting for components to initialize... "
+                            "\nShould take a few seconds. "
+                            "\nIf not, try waiting for up to a minute or restarting your PC.")
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 10,
+                1, 1, warning_text, self.renderer.yellow()
+            )
+            self.renderer.end_rendering()
+            return
+
         minutes, seconds = self.game_state.get_time_since_start()
         seconds_str = f"{seconds:02d}"
         
         # Prepare text content
-        text = "Welcome to the Dojo. Press 'm' to enter menu"
+        text = "Welcome to the Dojo. Press 'm' to enter menu."
         previous_record = "No record"
         
         if self.game_state.gym_mode == GymMode.SCENARIO:
             scores = f"Human: {self.game_state.human_score} Bot: {self.game_state.bot_score}"
             total_score = f"Total: {self.game_state.human_score + self.game_state.bot_score}"
             time_since_start = f"Time: {minutes}:{seconds_str}"
+            timeout_enabled = f"Timeouts enabled: {self.game_state.enable_timeouts}"
+            freeze_scenario_enabled = f"Scenario frozen: {self.game_state.freeze_scenario}"
             offensive_mode_name = f"Offensive Mode: {self.game_state.offensive_mode.name}"
             defensive_mode_name = f"Defensive Mode: {self.game_state.defensive_mode.name}"
             player_role_name = "offense" if self.game_state.player_offense else "defense"
@@ -84,8 +102,16 @@ class UIRenderer:
                 1, 1, player_role_string, self.renderer.white()
             )
             self.renderer.draw_string_2d(
-                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 220, 
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 220,
                 1, 1, game_phase_name, self.renderer.white()
+            )
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 250,
+                1, 1, timeout_enabled, self.renderer.white()
+            )
+            self.renderer.draw_string_2d(
+                SCORE_BOX_START_X + 10, SCORE_BOX_START_Y + 280,
+                1, 1, freeze_scenario_enabled, self.renderer.white()
             )
         self.renderer.end_rendering()
     

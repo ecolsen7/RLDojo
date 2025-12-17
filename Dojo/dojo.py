@@ -4,6 +4,8 @@ import string
 from rlbot.agents.base_script import BaseScript
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
+from input_management.hotkey_binding_menu import HotkeyBindingMenu
+from input_management.custom_hotkey_manager import CustomHotkeyManager, HotkeyAction
 # Import our new modular components
 from game_state import DojoGameState, GymMode, ScenarioPhase, RacePhase, CarIndex, CUSTOM_SELECTION_LIST, CUSTOM_MODES
 from game_modes import ScenarioMode, RaceMode
@@ -54,6 +56,10 @@ class Dojo(BaseScript):
         
         # Internal state
         self.rlbot_game_state = None
+
+        # Hotkey management
+        self.binding_menu_manager: HotkeyBindingMenu = None
+        self.hotkey_manager: CustomHotkeyManager = None
         
     def run(self):
         """Main game loop"""
@@ -68,6 +74,11 @@ class Dojo(BaseScript):
             # Initialize components on first tick
             if self.game_state.ticks == 1:
                 self._initialize_components()
+
+            if not self.game_state.dojo_components_initialized:
+                # HotkeyManager is initialized asynchronously to (preferably) avoid blocking the main thread.
+                self.game_state.dojo_components_initialized = (self.hotkey_manager is None
+                                                               or self.hotkey_manager.is_initialized())
             
             # Update current game mode
             if self.current_mode:
@@ -108,15 +119,24 @@ class Dojo(BaseScript):
         
         # Set up custom playlist manager with scenario mode
         self.scenario_mode.set_playlist_registry(self.playlist_registry)
+
+        # Set up custom hotkey binding system
+        self.hotkey_manager = CustomHotkeyManager()
+        self.hotkey_manager.load()  # Load all user defined bindings
+        self._setup_custom_hotkey_handlers()
+        self.hotkey_manager.register_bindings()
+        self.binding_menu_manager = HotkeyBindingMenu(renderer=self.game_interface.renderer,
+                                                      main_menu_renderer=self.menu_renderer,
+                                                      hotkey_manager=self.hotkey_manager)
         
         # Initialize menu system
         self._setup_menus()
-        
+        self.binding_menu_manager.main_menu_renderer = self.menu_renderer
         self.custom_playlist_manager.main_menu_renderer = self.menu_renderer
         
         # Set up keyboard handlers
         self._setup_keyboard_handlers()
-        
+
         # Set initial pause time
         self.game_state.pause_time = constants.DEFAULT_PAUSE_TIME
     
@@ -134,13 +154,13 @@ class Dojo(BaseScript):
         self.preset_mode_menu.add_element(UIElement('Offensive Mode', header=True), column=0)
         for mode in OffensiveMode:
             self.preset_mode_menu.add_element(
-                UIElement(mode.name, function=self._select_offensive_mode, function_args=mode, chooseable=True), 
+                UIElement(mode.name, function=self._select_offensive_mode, function_args=mode, chooseable=True),
                 column=0
             )
         self.preset_mode_menu.add_element(UIElement('Defensive Mode', header=True), column=1)
         for mode in DefensiveMode:
             self.preset_mode_menu.add_element(
-                UIElement(mode.name, function=self._select_defensive_mode, function_args=mode, chooseable=True), 
+                UIElement(mode.name, function=self._select_defensive_mode, function_args=mode, chooseable=True),
                 column=1
             )
         # Third column for player role
@@ -150,26 +170,26 @@ class Dojo(BaseScript):
         self.preset_mode_menu.add_element(UIElement('', header=True), column=2)  # Spacer
         self.preset_mode_menu.add_element(UIElement('Confirm Scenario', function=self._handle_back), column=2)
         self.menu_renderer.add_element(UIElement('Load Preset Scenario', submenu=self.preset_mode_menu))
-        
+
         # Custom scenario selection menu
         custom_scenario_selection_menu = self.create_custom_scenario_selection_menu()
         self.menu_renderer.add_element(UIElement('Load Custom Scenario', submenu=custom_scenario_selection_menu, submenu_refresh_function=self.create_custom_scenario_selection_menu))
-        
+
         # Playlist menu
         self.playlist_menu = self.create_playlist_menu()
         self.menu_renderer.add_element(UIElement('Select Playlist', submenu=self.playlist_menu, submenu_refresh_function=self.create_playlist_menu))
-        
+
         # Custom playlist creation menu
         if self.custom_playlist_manager:
             custom_playlist_menu = self.custom_playlist_manager.create_playlist_creation_menu()
             self.menu_renderer.add_element(UIElement('Create Custom Playlist', submenu=custom_playlist_menu))
-            
+
         # Custom scenario creation menu
         self.custom_scenario_creation_menu = MenuRenderer(self.game_interface.renderer, columns=1, render_function=self._render_custom_sandbox_ui, disable_menu_render=True)
         self.custom_scenario_creation_menu.add_element(UIElement('Create Custom Scenario', header=True))
         custom_scenario_starting_point_menu = self.create_custom_scenario_starting_point_menu()
         self.menu_renderer.add_element(UIElement('Create Custom Scenario', submenu=custom_scenario_starting_point_menu, submenu_refresh_function=self.create_custom_scenario_starting_point_menu))
-        
+
         # Race mode menu
         self.race_mode_menu = MenuRenderer(self.game_interface.renderer)
         self.race_mode_menu.add_element(UIElement('Number of Trials', header=True))
@@ -178,7 +198,26 @@ class Dojo(BaseScript):
                 UIElement(str(option), function=self._set_race_mode, function_args=option)
             )
         self.menu_renderer.add_element(UIElement('Race Mode', submenu=self.race_mode_menu))
-    
+
+        # Hotkey manager menu
+        if self.binding_menu_manager:
+            binding_menu = self.binding_menu_manager.create_menu_elements()
+            self.menu_renderer.add_element(UIElement('Manage Hotkeys', submenu=binding_menu))
+
+    def _next_scenario(self):
+        """Move to the next scenario"""
+        self.game_state.manual_reset_requested = True
+
+    def _toggle_timeout(self):
+        """Toggle the timeout"""
+        self.game_state.enable_timeouts = not self.game_state.enable_timeouts
+
+    def _setup_custom_hotkey_handlers(self):
+        if self.hotkey_manager:
+            self.hotkey_manager.set_action_callback(action=HotkeyAction.RESET_SHOT, callback=self._next_scenario)
+            self.hotkey_manager.set_action_callback(action=HotkeyAction.TOGGLE_FREEZE_SCENARIO, callback=self._toggle_freeze_scenario)
+            self.hotkey_manager.set_action_callback(action=HotkeyAction.TOGGLE_TIMEOUT, callback=self._toggle_timeout)
+
     def _setup_keyboard_handlers(self):
         """Set up all keyboard hotkeys"""
         keyboard.add_hotkey('m', self._toggle_menu)
@@ -202,7 +241,7 @@ class Dojo(BaseScript):
         # Allow backspace in text input
         keyboard.add_hotkey('backspace', self._handle_backspace)
         
-    ### Keyboard handler utilities 
+    ### Keyboard handler utilities
     def _add_hotkey_with_arg(self, hotkey, function, function_args):
         def wrapper():
             function(function_args)
@@ -708,8 +747,8 @@ class Dojo(BaseScript):
         
         # Add each playlist as a menu option
         for playlist_name in self.playlist_registry.list_playlists():
-            print(f"Playlist name: {playlist_name}")
-            print(f"Retrieved playlist: {self.playlist_registry.get_playlist(playlist_name)}")
+            # print(f"Playlist name: {playlist_name}")
+            # print(f"Retrieved playlist: {self.playlist_registry.get_playlist(playlist_name)}")
             playlist = self.playlist_registry.get_playlist(playlist_name)
             playlist_menu.add_element(UIElement(
                 f"{playlist.name}",
@@ -735,8 +774,17 @@ class Dojo(BaseScript):
     def cleanup(self):
         """Clean up keyboard handlers"""
         keyboard.unhook_all()
+        if self.hotkey_manager:
+            self.hotkey_manager.stop()
+
 
 # Entry point
 if __name__ == "__main__":
-    script = Dojo()
-    script.run() 
+    script = None
+    try:
+        script = Dojo()
+        script.run()
+    except KeyboardInterrupt:
+        # Try to force cleanup of pygame and threads to prevent hanging on exit
+        if script:
+            script.cleanup()
