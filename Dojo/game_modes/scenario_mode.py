@@ -223,7 +223,8 @@ class ScenarioMode(BaseGameMode):
             self.rlbot_game_state = scenario.GetGameState()
         else:
             if not self.game_state.freeze_scenario:
-                self.rlbot_game_state = self.custom_scenario.to_rlbot_game_state()
+                randomized_scenario = self.custom_scenario.create_randomized_copy()
+                self.rlbot_game_state = randomized_scenario.to_rlbot_game_state()
             else:
                 # Just assume that previous custom scenario state is still stored
                 pass

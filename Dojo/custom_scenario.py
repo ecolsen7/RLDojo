@@ -1,8 +1,13 @@
 import json
 import os
 from typing import List, Dict, Any, Optional, Tuple
+
+import numpy as np
 from pydantic import BaseModel, Field, ValidationError
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
+
+import utils
+
 
 class Vector3Model(BaseModel):
     x: float = Field(default=0.0)
@@ -182,6 +187,44 @@ class CustomScenario(BaseModel):
     def to_rlbot_game_state(self) -> GameState:
         """Convert this scenario back to an RLBot GameState"""
         return self.game_state.to_game_state()
+
+    def create_randomized_copy(self) -> 'CustomScenario':
+        """Add random variance to the game state"""
+        # TODO: Finetune these or make them configurable
+        yaw_variance = 0.5 * np.pi
+        velocity_variance = 0.5
+        boost_variance = 0.5
+
+        randomized_scenario = CustomScenario.model_copy(self, deep=True)
+        for car in randomized_scenario.game_state.cars.values():
+            # Randomize yaw
+            yaw = car.physics.rotation.yaw
+            yaw = yaw + utils.random_between(-yaw_variance, yaw_variance)
+            car.physics.rotation.yaw = yaw
+
+            # Randomize velocity (TODO: If we rotate yaw, we might want to rotate velocity as well?)
+            velocity = car.physics.velocity
+            velocity.z *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            velocity.x *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            velocity.y *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            car.physics.velocity = velocity
+
+            # Randomize boost amount
+            car.boost_amount =  car.boost_amount * utils.random_between(1-boost_variance, 1+boost_variance)
+
+        if randomized_scenario.game_state.ball is not None:
+            # Randomize ball velocity
+            ball = randomized_scenario.game_state.ball
+            ball.physics.velocity.z *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            ball.physics.velocity.x *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            ball.physics.velocity.y *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            randomized_scenario.game_state.ball = ball
+
+            # Randomize ball yaw
+            pass # Implement if needed
+
+        return randomized_scenario
+
 
     def save(self) -> None:
         """Save this scenario to disk"""
