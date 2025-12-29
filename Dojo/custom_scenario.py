@@ -225,6 +225,44 @@ class CustomScenario(BaseModel):
 
         return randomized_scenario
 
+    def adjust_to_target_player_amount(self, target_red_team_size: int, target_blue_team_size: int) -> 'CustomScenario':
+        # Let's assume typical 1v1, 2v2, 3v3, 4v4 scenarios with equally large teams
+        import math
+        new_scenario = CustomScenario.model_copy(self, deep=True)
+
+        # Get specs of the current scenario
+        num_players = len(self.game_state.cars)
+        blue_team_size = math.ceil(num_players / 2)  # Blue team is filled first in case we have uneven amount
+        red_team_size = num_players - blue_team_size  # Rest are on red
+        blue_cars = list(self.game_state.cars.values())[:blue_team_size]
+        red_cars = list(self.game_state.cars.values())[blue_team_size:]
+
+        # Get specs of the desired scenario
+        # target_blue_team_size = math.ceil(target_player_amount / 2)
+        # target_red_team_size = target_player_amount - target_blue_team_size
+        new_cars = {}
+        padded_car = CarStateModel(physics=PhysicsModel(
+            location=Vector3Model(x=50000, y=50000, z=50000), # Just move the car so far it cannot get back
+            angular_velocity=Vector3Model(x=0, y=0, z=0)))
+
+        # Reorder cars to fit target player amount
+        for i in range(target_blue_team_size):
+            if i < len(blue_cars):
+                new_cars[i] = blue_cars[i]
+            else:
+                new_cars[i] = padded_car
+        for i_offset in range(target_red_team_size):
+            i = target_blue_team_size + i_offset
+            if i_offset < len(red_cars):
+                new_cars[i] = red_cars[i_offset]
+            else:
+                new_cars[i] = padded_car
+
+        new_scenario.game_state.cars = new_cars
+        return new_scenario
+
+
+
 
     def save(self) -> None:
         """Save this scenario to disk"""

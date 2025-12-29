@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
@@ -21,9 +23,10 @@ class ScenarioMode(BaseGameMode):
         self.current_playlist = None
         self.last_menu_phase_time = 0
         self.custom_mode_active = False
-        self.custom_scenario = None
+        self.custom_scenario: Optional[CustomScenario] = None
         self.custom_trial_active = False
         self.trial_start_time = 0
+        self.most_recent_rlbot_packet = None
             
     def set_custom_scenario(self, scenario):
         """Set the custom scenario"""
@@ -67,6 +70,8 @@ class ScenarioMode(BaseGameMode):
         """Update scenario mode based on current game phase"""
         if self.game_state.paused:
             return
+
+        self.most_recent_rlbot_packet = packet
             
         phase_handlers = {
             ScenarioPhase.INIT: self._handle_init_phase,
@@ -222,9 +227,30 @@ class ScenarioMode(BaseGameMode):
                 scenario = self.game_state.scenario_history[self.game_state.freeze_scenario_index]
             self.rlbot_game_state = scenario.GetGameState()
         else:
+            # Handle custom scenarios (these might contain more than two players)
             if not self.game_state.freeze_scenario:
+                # Get number of cars in each team that exist in the current game state
+                packet = self.most_recent_rlbot_packet
+                if packet is not None:
+                    num_red = 0
+                    num_blue = 0
+                    for i, player_info in enumerate(packet.game_cars):
+                        if player_info.hitbox.length != 0:
+                            # Non-existing cars will have a hitbox length of 0
+                            if player_info.team == 0:
+                                num_blue += 1
+                            else:
+                                num_red += 1
+                else:
+                    # Should never happen, but just in case
+                    num_red = 1
+                    num_blue = 1
+
+                # Add random variance and adjust number of cars in each team
                 randomized_scenario = self.custom_scenario.create_randomized_copy()
+                randomized_scenario = randomized_scenario.adjust_to_target_player_amount(target_red_team_size=num_red, target_blue_team_size=num_blue)
                 self.rlbot_game_state = randomized_scenario.to_rlbot_game_state()
+                print(f"Randomized next custom scenario adjusted for {num_blue} blue cars and {num_red} red cars.")
             else:
                 # Just assume that previous custom scenario state is still stored
                 pass
