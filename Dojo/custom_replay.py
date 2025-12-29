@@ -283,7 +283,7 @@ class CustomReplayManager:
 
     def _reset_current_playlist(self):
         """Reset current playlist creation data"""
-        self.playlist = None
+        self.playlist = Playlist(name="", description="")
 
     def _add_custom_scenario(self, scenario_name):
         """Add a custom scenario"""
