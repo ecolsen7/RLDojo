@@ -81,7 +81,17 @@ class Playlist(BaseModel):
             is_custom = True
             scenario = self.custom_scenarios[scenario_index - len(self.scenarios)]
         return scenario, is_custom
-    
+
+    def get_number_of_players(self) -> int:
+        """ Returns maximum number of cars in any of the custom scenarios """
+        num_players = 2  # If no custom scenarios, default to 2v2
+        for scenario in self.custom_scenarios:
+            num_players = max(num_players, scenario.get_number_of_cars())
+        return num_players
+
+    def is_custom_playlist(self) -> bool:
+        """ Returns true if the playlist contains custom scenarios """
+        return len(self.custom_scenarios) > 0
         
     def render_details(self, renderer):
         """Render the playlist details"""

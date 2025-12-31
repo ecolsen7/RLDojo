@@ -1,6 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Union
 from scenario import Scenario, OffensiveMode, DefensiveMode
 from race_record import RaceRecord, RaceRecords
 
@@ -29,6 +29,7 @@ CUSTOM_SELECTION_LIST = [
 class GymMode(Enum):
     SCENARIO = 1
     RACE = 2
+    EDIT_PLAYLIST = 3
 
 
 class ScenarioPhase(Enum):
@@ -47,6 +48,15 @@ class ScenarioPhase(Enum):
 
 
 class RacePhase(Enum):
+    INIT = -1
+    SETUP = 0
+    ACTIVE = 1
+    MENU = 2
+    EXITING_MENU = 3
+    FINISHED = 4
+
+
+class EditPlaylistPhase(Enum):
     INIT = -1
     SETUP = 0
     ACTIVE = 1
@@ -74,9 +84,9 @@ class DojoGameState:
     """Centralized game state for the Dojo application"""
     # Game mode and phase
     gym_mode: GymMode = GymMode.SCENARIO
-    game_phase: ScenarioPhase = ScenarioPhase.SETUP
+    game_phase: Union[ScenarioPhase, RacePhase, EditPlaylistPhase] = ScenarioPhase.SETUP
     dojo_components_initialized: bool = False
-    
+
     # Scenario settings
     offensive_mode: OffensiveMode = OffensiveMode.POSSESSION
     defensive_mode: DefensiveMode = DefensiveMode.NEAR_SHADOW
