@@ -188,6 +188,9 @@ class CustomScenario(BaseModel):
         """Convert this scenario back to an RLBot GameState"""
         return self.game_state.to_game_state()
 
+    def get_number_of_cars(self) -> int:
+        return len(self.game_state.cars)
+
     def create_randomized_copy(self) -> 'CustomScenario':
         """Add random variance to the game state"""
         # TODO: Finetune these or make them configurable
