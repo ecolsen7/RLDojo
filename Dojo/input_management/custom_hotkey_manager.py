@@ -13,6 +13,7 @@ class HotkeyAction(Enum):
     RESET_SHOT = "Reset shot"
     TOGGLE_TIMEOUT = "Toggle timeout"
     TOGGLE_FREEZE_SCENARIO = "Toggle freeze scenario"
+    SAVE_STATE_TO_PLAYLIST = "Save game state to playlist"
 
 
 class HotkeyConfig(BaseModel):

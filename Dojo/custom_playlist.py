@@ -15,16 +15,14 @@ from pydantic import BaseModel, Field, ValidationError
 from custom_scenario import CustomScenario, get_custom_scenarios
 
 class CustomPlaylistManager:
-    def __init__(self, renderer, main_menu_renderer):
+    def __init__(self, renderer, main_menu_renderer, game_mode: 'PlaylistEditMode' = None):
         self.renderer = renderer
         self.main_menu_renderer = main_menu_renderer
+        self.game_mode = game_mode
         # Current playlist being created/edited
-        self.current_playlist_name = ""
-        self.current_scenarios = []
-        self.current_custom_scenarios = []
-        self.current_boost_range = [12, 100]  # Default boost range
-        self.current_timeout = 7.0
-        self.current_rule_zero = False
+        self.playlist: Playlist = Playlist(name="", description="")
+        # List of all existing playlists
+        self.custom_playlists = self.get_custom_playlists()
         
     def load_custom_playlists(self):
         """Load custom playlists from disk and return a list of all custom playlists"""
@@ -39,9 +37,11 @@ class CustomPlaylistManager:
         """Create the main playlist creation menu"""
         menu = MenuRenderer(self.renderer, columns=1, render_function=self._render_playlist_details)
         menu.add_element(UIElement("Create Custom Playlist", header=True))
+        menu.add_element(UIElement("Load Existing Custom Playlist", submenu=self._create_playlist_menu(), submenu_refresh_function=self._create_playlist_menu))
         menu.add_element(UIElement("Set Playlist Name", submenu=self._create_name_input_menu(), display_value_function=self.get_current_playlist_name))
         menu.add_element(UIElement("Add PresetScenarios", submenu=self._create_scenario_selection_menu()))
         menu.add_element(UIElement("Add Custom Scenario", submenu=self._create_custom_scenario_selection_menu()))
+        menu.add_element(UIElement("Add Current State", function=self.add_current_state_to_playlist))
         menu.add_element(UIElement("Set Boost Range", submenu=self._create_boost_range_menu(), display_value_function=self.get_current_playlist_boost_range))
         menu.add_element(UIElement("Set Timeout", submenu=self._create_timeout_menu(), display_value_function=self.get_current_playlist_timeout))
         menu.add_element(UIElement("Toggle Rule Zero", function=self._toggle_rule_zero, display_value_function=self.get_current_playlist_rule_zero))
@@ -50,34 +50,59 @@ class CustomPlaylistManager:
         return menu
         
     ### Element value retrieval functions
+    def get_number_of_vehicles_in_custom_scenarios(self):
+        # Find the number of vehicles in each scenario
+        vehicles_per_scenario = []
+        for scenario in self.playlist.custom_scenarios:
+            vehicles_per_scenario.append(len(scenario.game_state.cars))
+        return vehicles_per_scenario
+
+    def get_current_playlist(self):
+        return self.playlist
+
     def get_current_playlist_name(self):
-        return self.current_playlist_name
-        
-    
+        return self.playlist.name
+
     def get_current_playlist_boost_range(self):
-        return self.current_boost_range
-    
+        return self.playlist.settings.boost_range
+
     def get_current_playlist_timeout(self):
-        return self.current_timeout
-    
+        return self.playlist.settings.timeout
+
     def get_current_playlist_rule_zero(self):
-        return self.current_rule_zero
+        return self.playlist.settings.rule_zero
 
     def _render_playlist_details(self):
-        # Create a playlist out of current settings
-        playlist = Playlist(
-            name=self.current_playlist_name,
-            description=f"Custom playlist with {len(self.current_scenarios)} scenarios",
-            scenarios=self.current_scenarios.copy(),
-            custom_scenarios=self.current_custom_scenarios.copy(),
-            settings=PlaylistSettings(timeout=self.current_timeout, shuffle=True, boost_range=self.current_boost_range, rule_zero=self.current_rule_zero)
-        )
-        playlist.render_details(self.renderer)
+        self.playlist.render_details(self.renderer)
     
     def _create_name_input_menu(self):
         """Create menu for setting playlist name"""
         menu = MenuRenderer(self.renderer, columns=1, text_input=True, text_input_callback=self._set_playlist_name)
         return menu
+
+    def _create_playlist_menu(self):
+        """Create playlist selection submenu"""
+        # Refresh custom playlists to include any newly created ones
+        self.custom_playlists = self.get_custom_playlists()
+
+        playlist_menu = MenuRenderer(self.renderer, columns=1)
+        playlist_menu.add_element(UIElement("Select Playlist", header=True))
+
+        # Add each playlist as a menu option
+        for playlist_name, playlist in self.custom_playlists.items():
+            playlist_menu.add_element(UIElement(
+                f"{playlist.name}",
+                function=self._set_playlist,
+                function_args=(playlist_name, playlist)
+            ))
+
+        return playlist_menu
+
+    def _set_playlist(self, playlist_name: str, playlist: Playlist):
+        """Set the active playlist"""
+        print(f"Setting playlist: {playlist_name}")
+        self.playlist = playlist
+        self.main_menu_renderer.handle_back_key()
     
     def _create_scenario_selection_menu(self):
         """Create menu for selecting scenarios to add"""
@@ -169,7 +194,7 @@ class CustomPlaylistManager:
     temp_player_role = None
     
     def _set_playlist_name(self, name):
-        self.current_playlist_name = name
+        self.playlist.name = name
         print(f"Playlist name set to: {name}")
     
     def _set_temp_offensive_mode(self, mode):
@@ -192,61 +217,65 @@ class CustomPlaylistManager:
                 defensive_mode=self.temp_defensive_mode,
                 player_role=self.temp_player_role
             )
-            self.current_scenarios.append(scenario)
+            self.playlist.scenarios.append(scenario)
             print(f"Added scenario: {self.temp_offensive_mode.name} vs {self.temp_defensive_mode.name} ({self.temp_player_role.name})")
-            
+
             # Reset temp variables
             self.temp_offensive_mode = None
             self.temp_defensive_mode = None
             self.temp_player_role = None
-            
+
             # Exit the submenu
             if self.main_menu_renderer:
                 self.main_menu_renderer.handle_back_key()
         else:
             print("Please select offensive mode, defensive mode, and player role first")
-    
-    
+
+    def add_current_state_to_playlist(self):
+        """Add current game/replay state to playlist """
+        print("Adding current game state")
+        rlbot_game_state = self.game_mode.get_current_game_state()
+        if rlbot_game_state is not None:
+            scenario = CustomScenario.from_rlbot_game_state(name="replay_state", game_state=rlbot_game_state)
+            self.playlist.custom_scenarios.append(scenario)
+            print("Added current state to playlist as custom scenario")
+        else:
+            print("Cannot add current game state to playlist: RLBot game state not available")
+            return
     
     def _set_min_boost(self, boost):
         """Set minimum boost value"""
-        self.current_boost_range = (boost, max(boost + 10, self.current_boost_range[1]))
-        print(f"Set boost range: {self.current_boost_range}")
-    
+        self.playlist.settings.boost_range = (boost, max(boost + 10, self.playlist.settings.boost_range[1]))
+        print(f"Set boost range: {self.playlist.settings.boost_range}")
+
     def _set_max_boost(self, boost):
         """Set maximum boost value"""
-        self.current_boost_range = (min(boost - 10, self.current_boost_range[0]), boost)
-        print(f"Set boost range: {self.current_boost_range}")
-    
+        self.playlist.settings.boost_range = (min(boost - 10, self.playlist.settings.boost_range[0]), boost)
+        print(f"Set boost range: {self.playlist.settings.boost_range}")
+
     def _set_timeout(self, timeout):
         """Set scenario timeout"""
-        self.current_timeout = timeout
+        self.playlist.settings.timeout = timeout
         print(f"Set timeout: {timeout}s")
     
     def _toggle_rule_zero(self):
         """Toggle rule zero setting"""
-        self.current_rule_zero = not self.current_rule_zero
-        print(f"Rule zero: {'ON' if self.current_rule_zero else 'OFF'}")
+        self.playlist.settings.rule_zero = not self.playlist.settings.rule_zero
+        print(f"Rule zero: {'ON' if self.playlist.settings.rule_zero else 'OFF'}")
     
     
     def _save_current_playlist(self):
         """Save the currently configured playlist to file, and register it in the playlist registry"""
-        if not self.current_playlist_name:
+        if not self.playlist.name:
             print("Please set a playlist name first")
             return
-        
-        # Register the playlist in the playlist registry 
-        # and save it to file
-        playlist = Playlist(
-            name=self.current_playlist_name,
-            description=f"Custom playlist with {len(self.current_scenarios)} scenarios",
-            scenarios=self.current_scenarios.copy(),
-            custom_scenarios=self.current_custom_scenarios.copy(),
-            settings=PlaylistSettings(timeout=self.current_timeout, shuffle=True, boost_range=self.current_boost_range, rule_zero=self.current_rule_zero)
-        )
-        
-        with open(os.path.join(_get_custom_playlists_path(), f"{self.current_playlist_name}.json"), "w") as f:
+
+        # Save current playlist to a file
+        playlist = self.playlist
+        file_path = os.path.join(_get_custom_playlists_path(), f"{playlist.name}.json")
+        with open(file_path, "w") as f:
             f.write(playlist.model_dump_json())
+        print(f"Saved playlist: {playlist.name} to {file_path}")
 
     def _cancel_playlist_creation(self):
         """Cancel playlist creation and reset"""
@@ -255,22 +284,14 @@ class CustomPlaylistManager:
     
     def _reset_current_playlist(self):
         """Reset current playlist creation data"""
-        self.current_playlist_name = ""
-        self.current_scenarios = []
-        self.current_custom_scenarios = []
-        self.current_boost_range = [12, 100]
-        self.current_timeout = 7.0
-        self.current_rule_zero = False
-        self.temp_offensive_mode = None
-        self.temp_defensive_mode = None
-        self.temp_player_role = None
+        self.playlist = Playlist(name="", description="")
         
     def _add_custom_scenario(self, scenario_name):
         """Add a custom scenario"""
-        self.current_custom_scenarios.append(CustomScenario.load(scenario_name))
+        self.playlist.custom_scenarios.append(CustomScenario.load(scenario_name))
         print(f"Added custom scenario: {scenario_name}")
     
-    def get_custom_playlists(self):
+    def get_custom_playlists(self) -> Dict[str, Playlist]:
         """Get all custom playlists"""
         # Load all custom playlists from disk
         custom_playlists = {}

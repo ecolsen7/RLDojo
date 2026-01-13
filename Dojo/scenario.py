@@ -112,18 +112,36 @@ class Scenario:
         return scenario
         
 
-    def GetGameState(self):
+    def GetGameState(self, num_blue_cars=1, num_red_cars=1):
         '''
-        Set the game state to the scenario
+        Get the game state for the scenario (and move extra cars outside the map)
         '''
-        # Car 0 = Blue, Car 1 = Orange
         car_states = {}
         if self.offensive_team == 0:
-            car_states[1] = self.offensive_car_state
-            car_states[0] = self.defensive_car_state
+            red_car = self.offensive_car_state
+            blue_car = self.defensive_car_state
         else:
-            car_states[0] = self.offensive_car_state
-            car_states[1] = self.defensive_car_state
+            blue_car = self.offensive_car_state
+            red_car = self.defensive_car_state
+
+        # Create a car state for any cars we do not want in the field
+        car_outside_of_map = CarState(physics=Physics(
+            location=Vector3(x=50000, y=50000, z=50000),
+            angular_velocity=Vector3(x=0, y=0, z=0)))
+
+        # Fill blue cars
+        for i in range(num_blue_cars):
+            if i == 0:
+                car_states[i] = blue_car
+            else:
+                car_states[i] = car_outside_of_map
+
+        # Fill red cars
+        for i in range(num_red_cars):
+            if i == 0:
+                car_states[i + num_blue_cars] = red_car
+            else:
+                car_states[i + num_blue_cars] = car_outside_of_map
         return GameState(ball=self.ball_state, cars=car_states)
 
 

@@ -1,8 +1,12 @@
-import json
 import os
-from typing import List, Dict, Any, Optional, Tuple
-from pydantic import BaseModel, Field, ValidationError
+from typing import Dict, Optional
+
+import numpy as np
+from pydantic import BaseModel, Field
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
+
+import utils
+
 
 class Vector3Model(BaseModel):
     x: float = Field(default=0.0)
@@ -161,6 +165,7 @@ class TypedGameState(BaseModel):
 
         return GameState(cars=cars, ball=ball)
 
+
 class CustomScenario(BaseModel):
     """A custom scenario that can be saved to and loaded from disk.
     
@@ -182,6 +187,90 @@ class CustomScenario(BaseModel):
     def to_rlbot_game_state(self) -> GameState:
         """Convert this scenario back to an RLBot GameState"""
         return self.game_state.to_game_state()
+
+    def get_number_of_cars(self) -> int:
+        return len(self.game_state.cars)
+
+    def create_randomized_copy(self) -> 'CustomScenario':
+        """Add random variance to the game state"""
+        # TODO: Finetune these or make them configurable
+        yaw_variance = 0.2 * np.pi
+        velocity_variance = 0.2
+        boost_variance = 0.3
+
+        randomized_scenario = CustomScenario.model_copy(self, deep=True)
+        for car in randomized_scenario.game_state.cars.values():
+            # 1. Get random yaw variation
+            yaw_diff = utils.random_between(-yaw_variance, yaw_variance)
+
+            # 2. Update car rotation
+            original_rotation = car.physics.rotation
+            car.physics.rotation = utils.rotate_orientation_around_up_axis(original_rotation, yaw_diff)
+
+            # 3. Rotate velocity around the local UP axis so it stays flush with the surface
+            car.physics.velocity = utils.rotate_vector_around_up_axis(original_rotation, car.physics.velocity, yaw_diff)
+
+            # 4. Randomize speed
+            v_magnitude = np.sqrt(car.physics.velocity.x**2 + car.physics.velocity.y**2 + car.physics.velocity.z**2)
+            max_velocity = 2300  # Max possible speed in unreal units
+            max_v_scale = max_velocity / v_magnitude
+            v_scale = utils.random_between(1 - velocity_variance, 1 + velocity_variance)
+            v_scale = min(v_scale, max_v_scale)  # Not sure if we need this at all, but it might avoid some visual bugs
+            car.physics.velocity.x *= v_scale
+            car.physics.velocity.y *= v_scale
+            car.physics.velocity.z *= v_scale
+
+            # 5. Randomize boost amount
+            car.boost_amount =  car.boost_amount * utils.random_between(1-boost_variance, 1+boost_variance)
+
+        if randomized_scenario.game_state.ball is not None:
+            # Randomize ball velocity (and direction since we randomize each component separately)
+            ball = randomized_scenario.game_state.ball
+            ball.physics.velocity.z *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            ball.physics.velocity.x *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            ball.physics.velocity.y *= utils.random_between(1-velocity_variance, 1+velocity_variance)
+            randomized_scenario.game_state.ball = ball
+
+        return randomized_scenario
+
+    def adjust_to_target_player_amount(self, target_red_team_size: int, target_blue_team_size: int) -> 'CustomScenario':
+        # Let's assume typical 1v1, 2v2, 3v3, 4v4 scenarios with equally large teams
+        import math
+        new_scenario = CustomScenario.model_copy(self, deep=True)
+
+        # Get specs of the current scenario
+        num_players = len(self.game_state.cars)
+        blue_team_size = math.ceil(num_players / 2)  # Blue team is filled first in case we have uneven amount
+        red_team_size = num_players - blue_team_size  # Rest are on red
+        blue_cars = list(self.game_state.cars.values())[:blue_team_size]
+        red_cars = list(self.game_state.cars.values())[blue_team_size:]
+
+        # Get specs of the desired scenario
+        # target_blue_team_size = math.ceil(target_player_amount / 2)
+        # target_red_team_size = target_player_amount - target_blue_team_size
+        new_cars = {}
+        padded_car = CarStateModel(physics=PhysicsModel(
+            location=Vector3Model(x=50000, y=50000, z=50000), # Just move the car so far it cannot get back
+            angular_velocity=Vector3Model(x=0, y=0, z=0)))
+
+        # Reorder cars to fit target player amount
+        for i in range(target_blue_team_size):
+            if i < len(blue_cars):
+                new_cars[i] = blue_cars[i]
+            else:
+                new_cars[i] = padded_car
+        for i_offset in range(target_red_team_size):
+            i = target_blue_team_size + i_offset
+            if i_offset < len(red_cars):
+                new_cars[i] = red_cars[i_offset]
+            else:
+                new_cars[i] = padded_car
+
+        new_scenario.game_state.cars = new_cars
+        return new_scenario
+
+
+
 
     def save(self) -> None:
         """Save this scenario to disk"""

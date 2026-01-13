@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator, GameInfoState
 
@@ -106,3 +108,81 @@ def sanity_check_objects(objects):
         elif object.physics.location.x < -2944 and object.physics.location.y < -3968:
             object.physics.location.x = -2944
             object.physics.location.y = -3968
+
+
+def get_basis_vectors(rotation: Rotator) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Calculates the basis vectors (Forward, Left, Up) for a given Rotator.
+    Accounts for RL's X-Forward, Y-Right, Z-Up coordinate system.
+    """
+    p, y, r = rotation.pitch, rotation.yaw, rotation.roll
+    cp, cy, cr = np.cos(p), np.cos(y), np.cos(r)
+    sp, sy, sr = np.sin(p), np.sin(y), np.sin(r)
+
+    # Forward (X)
+    fwd = np.array([cp * cy, cp * sy, sp])
+
+    # Left (Y) - Note: RL uses Y-Right, so this derivation provides local Left
+    lft = np.array([
+        cy * sp * sr - sy * cr,
+        sy * sp * sr + cy * cr,
+        -cp * sr
+    ])
+
+    # Up (Z) - Car's roof direction
+    up = np.cross(fwd, lft)
+
+    return fwd, lft, up
+
+
+def rotate_orientation_around_up_axis(rotation: Rotator, angle: float):
+    """
+    Rotates car orientation (Rotator) around the object's local Up axis (the roof).
+
+    So basically rotates the yaw of a car, regardless if it is on the ground or a wall.
+    """
+    fwd, lft, up = get_basis_vectors(rotation)
+
+    # 1. Rotate Forward and Left around the Up vector
+    cos_a, sin_a = np.cos(angle), np.sin(angle)
+    fwd_new = fwd * cos_a + lft * sin_a
+
+    # 2. Extract Euler Angles (Pitch, Yaw, Roll)
+    new_pitch = np.arctan2(fwd_new[2], np.sqrt(fwd_new[0]**2 + fwd_new[1]**2))
+    new_yaw = np.arctan2(fwd_new[1], fwd_new[0])
+
+    # 3. Extract Roll
+    # We find the 'Up' if Roll were zero at this new P/Y and find angle to actual Up
+    sy_n, cy_n = np.sin(new_yaw), np.cos(new_yaw)
+    sp_n, cp_n = np.sin(new_pitch), np.cos(new_pitch)
+
+    # The 'Zero Roll' Basis
+    fwd_zr = np.array([cp_n * cy_n, cp_n * sy_n, sp_n])
+    lft_zr = np.array([-sy_n, cy_n, 0])
+    up_zr = np.cross(fwd_zr, lft_zr)
+
+    # Roll is the angle between Up and the plane formed by fwd and up_zr
+    new_roll = np.arctan2(np.dot(up, lft_zr), np.dot(up, up_zr))
+
+    return Rotator(pitch=new_pitch, yaw=new_yaw, roll=new_roll)
+
+
+def rotate_vector_around_up_axis(rotation: Rotator, velocity: Vector3, angle: float):
+    """
+    Rotates a vector around the object's local Up axis (the roof).
+
+    Useful for rotating the velocity of a car along its local yaw axis.
+    This is different from getting a velocity vector directly from the car's orientation,
+    as especially during aerials the nose of the car is not always pointing forward.
+    """
+    _, _, up_axis = get_basis_vectors(rotation)
+
+    v = np.array([velocity.x, velocity.y, velocity.z])
+    cos_a, sin_a = np.cos(angle), np.sin(angle)
+
+    # Rodrigues Formula for rotation around the arbitrary Up axis
+    v_rotated = (v * cos_a +
+                 np.cross(up_axis, v) * sin_a +
+                 up_axis * np.dot(up_axis, v) * (1 - cos_a))
+
+    return Vector3(x=v_rotated[0], y=v_rotated[1], z=v_rotated[2])
