@@ -1,6 +1,6 @@
 [[config]]
 project_name = "RLDojo"
-bot_configs = ["dojo/dojo.script.toml"]
+bot_configs = ["Dojo/dojo.script.toml"]
 
 [config.builder_config]
 builder_type = "pyinstaller"
